@@ -36,4 +36,29 @@ public class BinUtils {
         }
         return data;
     }
+
+    // Packs an int into 4 bytes (little-endian)
+    public static byte[] packIntLE(int value) {
+        return new byte[] {
+                (byte) (value & 0xFF),
+                (byte) ((value >> 8) & 0xFF),
+                (byte) ((value >> 16) & 0xFF),
+                (byte) ((value >> 24) & 0xFF)
+        };
+    }
+
+    // Unpacks a short from 2 bytes (little-endian)
+    public static short unpackShortLE(byte[] data, int offset) {
+        return (short) ((data[offset] & 0xFF) | ((data[offset + 1] & 0xFF) << 8));
+    }
+
+    // Packs two shorts into 4 bytes (little-endian)
+    public static byte[] packShortLE(short s1, short s2) {
+        return new byte[] {
+                (byte) (s1 & 0xFF),
+                (byte) ((s1 >> 8) & 0xFF),
+                (byte) (s2 & 0xFF),
+                (byte) ((s2 >> 8) & 0xFF)
+        };
+    }
 }
