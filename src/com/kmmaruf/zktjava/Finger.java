@@ -8,7 +8,7 @@ import java.util.Objects;
 public class Finger {
     private int size;
     private int uid;
-    private int fid;
+    public int fid;
     private int valid;
     private byte[] template;
     private byte[] mark;
