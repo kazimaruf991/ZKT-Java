@@ -202,6 +202,7 @@ public class Base {
         public boolean endLiveCapture = false;
         private int response;  // Holds the full response payload from device or socket
         private byte[] header;    // Holds the protocol-specific header portion
+        private int tcpLength;
 
         /**
          * Construct a new 'ZK' object.
@@ -252,6 +253,10 @@ public class Base {
             this(ip, 4370, 60, 0, false, false, false, "UTF-8");
         }
 
+        public ZK(String ip, int port, int password) {
+            this(ip, port, 60, password, false, false, false, "UTF-8");
+        }
+
 
         // Boolean test equivalent of __nonzero__
         public boolean isConnected() {
@@ -277,17 +282,15 @@ public class Base {
         // Create TCP top header
         private byte[] createTcpTop(byte[] packet) {
             int length = packet.length;
-            ByteBuffer top = ByteBuffer.allocate(8); // 2 shorts + 1 int = 8 bytes
-            top.order(ByteOrder.LITTLE_ENDIAN);
-            top.putShort((short) DeviceConstants.MACHINE_PREPARE_DATA_1);
-            top.putShort((short) DeviceConstants.MACHINE_PREPARE_DATA_2);
-            top.putInt(length);
-            byte[] topBytes = top.array();
+            byte[] top =  pack("HHI", DeviceConstants.MACHINE_PREPARE_DATA_1, DeviceConstants.MACHINE_PREPARE_DATA_2, length);
 
-            byte[] result = new byte[topBytes.length + packet.length];
-            System.arraycopy(topBytes, 0, result, 0, topBytes.length);
-            System.arraycopy(packet, 0, result, topBytes.length, packet.length);
-            return result;
+            byte[] combined = new byte[top.length + packet.length];
+
+            System.arraycopy(top, 0, combined, 0, top.length);
+
+            System.arraycopy(packet, 0, combined, top.length, packet.length);
+
+            return combined;
         }
 
         // Create packet header
@@ -396,7 +399,7 @@ public class Base {
                     byte[] tcpDataRecv = new byte[responseSize + 8];
                     this.tcpSocket.getInputStream().read(tcpDataRecv);
 
-                    int tcpLength = testTcpTop(tcpDataRecv);
+                    tcpLength = testTcpTop(tcpDataRecv);
                     if (tcpLength == 0) {
                         throw new ZKNetworkError("TCP packet invalid");
                     }
@@ -1277,9 +1280,9 @@ public class Base {
             if (this.fingers == 0) return new ArrayList<>();
 
             List<Finger> templates = new ArrayList<>();
-            Pair<byte[], Integer> result = readWithBuffer(DeviceConstants.CMD_DB_RRQ, DeviceConstants.FCT_FINGERTMP);
-            byte[] templatedata = result.getKey();
-            int size = result.getValue();
+            ReadBufferResult result = readWithBuffer(DeviceConstants.CMD_DB_RRQ, DeviceConstants.FCT_FINGERTMP);
+            byte[] templatedata = result.data;
+            int size = result.size;
 
             if (size < 4) {
                 if (this.verbose) System.out.println("WRN: no user data");
@@ -1321,9 +1324,9 @@ public class Base {
 
             List<User> users = new ArrayList<>();
             int maxUid = 0;
-            Pair<byte[], Integer> result = readWithBuffer(DeviceConstants.CMD_USERTEMP_RRQ, DeviceConstants.FCT_USER);
-            byte[] userdata = result.getKey();
-            int size = result.getValue();
+            ReadBufferResult result = readWithBuffer(DeviceConstants.CMD_USERTEMP_RRQ, DeviceConstants.FCT_USER);
+            byte[] userdata = result.data;
+            int size = result.size;
 
             if (this.verbose) {
                 System.out.printf("user size %d (= %d)%n", size, userdata.length);
@@ -1636,7 +1639,7 @@ public class Base {
                         Optional<User> matched = users.stream().filter(u -> u.userId.equals(userId)).findFirst();
                         int uid = matched.map(u -> u.uid).orElse(Integer.parseInt(userId));
 
-                        listener.onEvent(new Attendance(userId, timestamp, status, punch, uid));
+                        listener.onEvent(new Attendance(uid, userId, timestamp, status, punch));
                     }
 
                 } catch (SocketTimeoutException e) {
@@ -1873,13 +1876,13 @@ public class Base {
             return result;
         }
 
-        private byte[] readChunk(int start, int size) throws IOException, ZKErrorResponse {
+        private byte[] readChunk(int start, int size) throws Exception {
             for (int retries = 0; retries < 3; retries++) {
-                int command = Const._CMD_READ_BUFFER;
+                int command = DeviceConstants._CMD_READ_BUFFER;
                 byte[] commandString = pack("<ii", start, size);
                 int responseSize = tcp ? size + 32 : 1024 + 8;
 
-                boolean success = sendCommand(command, commandString, responseSize);
+                sendCommand(command, commandString, responseSize);
                 byte[] data = receiveChunk();
 
                 if (data != null) {
@@ -1899,7 +1902,15 @@ public class Base {
             }
         }
 
-        public ReadBufferResult readWithBuffer(int command, int fct, int ext) throws IOException, ZKErrorResponse {
+        public ReadBufferResult readWithBuffer(int command) throws Exception {
+            return readWithBuffer(command, 0, 0);
+        }
+
+        public ReadBufferResult readWithBuffer(int command, int fct) throws Exception {
+            return readWithBuffer(command, fct, 0);
+        }
+
+        public ReadBufferResult readWithBuffer(int command, int fct, int ext) throws Exception {
             int MAX_CHUNK = tcp ? 0xFFc0 : 16 * 1024;
             byte[] commandString = pack("<bhii", 1, command, fct, ext);
             if (verbose) System.out.println("rwb cs: " + Arrays.toString(commandString));
@@ -1908,10 +1919,11 @@ public class Base {
             int start = 0;
             List<byte[]> chunks = new ArrayList<>();
 
-            boolean success = sendCommand(Const._CMD_PREPARE_BUFFER, commandString, responseSize);
-            if (!success) throw new ZKErrorResponse("RWB Not supported");
+            Map<String, Object> response = sendCommand(DeviceConstants._CMD_PREPARE_BUFFER, commandString, responseSize);
 
-            if (responseCode == Const.CMD_DATA) {
+            if (!(boolean) response.get("status")) throw new ZKErrorResponse("RWB Not supported");
+
+            if (((int)response.get("code")) == DeviceConstants.CMD_DATA) {
                 if (tcp) {
                     if (verbose) System.out.printf("DATA! is %d bytes, tcp length is %d%n", data.length, tcpLength);
                     if (data.length < (tcpLength - 8)) {
@@ -1949,7 +1961,7 @@ public class Base {
             return new ReadBufferResult(concatAll(chunks), start);
         }
 
-        public List<Attendance> getAttendance() throws IOException, ZKErrorResponse {
+        public List<Attendance> getAttendance() throws Exception {
             readSizes();
             if (records == 0) return new ArrayList<>();
 
@@ -1957,7 +1969,7 @@ public class Base {
             if (verbose) System.out.println(users);
 
             List<Attendance> attendances = new ArrayList<>();
-            ReadBufferResult result = readWithBuffer(Const.CMD_ATTLOG_RRQ);
+            ReadBufferResult result = readWithBuffer(DeviceConstants.CMD_ATTLOG_RRQ);
             byte[] attendanceData = result.data;
             int size = result.size;
 
@@ -1984,7 +1996,7 @@ public class Base {
 
                     String userId = users.stream().filter(u -> u.uid == uid).map(u -> u.userId).findFirst().orElse(String.valueOf(uid));
                     LocalDateTime timestamp = decodeTime(timestampRaw);
-                    attendance = new Attendance(userId, timestamp, status, punch, uid);
+                    attendance = new Attendance(uid, userId, timestamp, status, punch);
                     attendanceData = Arrays.copyOfRange(attendanceData, 8, attendanceData.length);
 
                 } else if (recordSize == 16) {
@@ -1994,12 +2006,13 @@ public class Base {
                     int status = (int) fields[2];
                     int punch = (int) fields[3];
 
-                    Optional<User> match = users.stream().filter(u -> u.userId.equals(userId)).findFirst();
+                    String finalUserId = userId;
+                    Optional<User> match = users.stream().filter(u -> u.userId.equals(finalUserId)).findFirst();
                     int uid = match.map(u -> u.uid).orElse(Integer.parseInt(userId));
                     userId = match.map(u -> u.userId).orElse(userId);
 
                     LocalDateTime timestamp = decodeTime(timestampRaw);
-                    attendance = new Attendance(userId, timestamp, status, punch, uid);
+                    attendance = new Attendance(uid, userId, timestamp, status, punch);
                     attendanceData = Arrays.copyOfRange(attendanceData, 16, attendanceData.length);
 
                 } else {
@@ -2011,7 +2024,7 @@ public class Base {
                     int punch = (int) fields[4];
 
                     LocalDateTime timestamp = decodeTime(timestampRaw);
-                    attendance = new Attendance(userId, timestamp, status, punch, uid);
+                    attendance = new Attendance(uid, userId, timestamp, status, punch);
                     attendanceData = Arrays.copyOfRange(attendanceData, recordSize, attendanceData.length);
                 }
 
@@ -2025,9 +2038,8 @@ public class Base {
 
         public boolean clearAttendance() throws Exception {
             int command = DeviceConstants.CMD_CLEAR_ATTLOG;
-            boolean success = sendCommand(command);
-
-            if (success) {
+            Map<String, Object> cmdResponse = sendCommand(command);
+            if ((Boolean) cmdResponse.get("status")) {
                 return true;
             } else {
                 throw new ZKErrorResponse("Can't clear response");

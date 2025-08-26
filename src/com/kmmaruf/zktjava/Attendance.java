@@ -1,15 +1,16 @@
 package com.kmmaruf.zktjava;
 
+import java.time.LocalDateTime;
 import java.util.Date;
 
 public class Attendance {
     private int uid;
     private String user_id;
-    private Date timestamp;
+    private LocalDateTime timestamp;
     private int status;
     private int punch;
 
-    public Attendance(int uid, String user_id, Date timestamp, int status, int punch) {
+    public Attendance(int uid, String user_id, LocalDateTime timestamp, int status, int punch) {
         this.uid = uid;
         this.user_id = user_id;
         this.timestamp = timestamp;
@@ -33,11 +34,11 @@ public class Attendance {
         this.user_id = user_id;
     }
 
-    public Date getTimestamp() {
+    public LocalDateTime getTimestamp() {
         return timestamp;
     }
 
-    public void setTimestamp(Date timestamp) {
+    public void setTimestamp(LocalDateTime timestamp) {
         this.timestamp = timestamp;
     }
 
