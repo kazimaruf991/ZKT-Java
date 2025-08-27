@@ -19,6 +19,9 @@ import java.net.SocketException;
 
 public class Base {
 
+    public interface EventListener {
+        void onEvent(Attendance attendance);
+    }
 
     public static <T> T safe_cast(Object val, Class<T> toType, T defaultValue) {
         try {
@@ -1092,7 +1095,7 @@ public class Base {
         }
 
         // Pack values into byte array using format string
-        public static byte[] pack(String format, Object... values) {
+        public byte[] pack(String format, Object... values) {
             ByteBuffer buffer = ByteBuffer.allocate(1024).order(ByteOrder.LITTLE_ENDIAN);
             int index = 0;
 
@@ -1117,7 +1120,7 @@ public class Base {
         }
 
         // Unpack byte array into values using format string
-        public static Object[] unpack(String format, byte[] data) {
+        public Object[] unpack(String format, byte[] data) {
             ByteBuffer buffer = ByteBuffer.wrap(data).order(ByteOrder.LITTLE_ENDIAN);
             List<Object> result = new ArrayList<>();
 
@@ -1134,7 +1137,7 @@ public class Base {
             return result.toArray();
         }
 
-        public static Object[] unpack(String format, byte[] data, int offset) {
+        public Object[] unpack(String format, byte[] data, int offset) {
             List<Object> result = new ArrayList<>();
             ByteBuffer buffer = ByteBuffer.wrap(data);
             buffer.order(ByteOrder.LITTLE_ENDIAN);
@@ -1174,7 +1177,7 @@ public class Base {
         }
 
         // Concatenate multiple byte arrays
-        public static byte[] concat(byte[]... arrays) {
+        public byte[] concat(byte[]... arrays) {
             int totalLength = Arrays.stream(arrays).mapToInt(a -> a.length).sum();
             byte[] result = new byte[totalLength];
             int offset = 0;
@@ -1188,7 +1191,7 @@ public class Base {
         }
 
         // Convenience method for packing a single int (little-endian)
-        public static byte[] packIntLE(int value) {
+        public byte[] packIntLE(int value) {
             ByteBuffer buffer = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN);
             buffer.putInt(value);
             return buffer.array();
@@ -1660,10 +1663,6 @@ public class Base {
             if (!wasEnabled) {
                 disableDevice();
             }
-        }
-
-        public interface EventListener {
-            void onEvent(Attendance attendance);
         }
 
         public boolean clearData() throws Exception {
