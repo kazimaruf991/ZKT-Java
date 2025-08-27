@@ -5,12 +5,13 @@ import com.kmmaruf.zktjava.Base;
 public class Main {
     public static void main(String[] args) {
         Base base = new Base();
-        // Base.ZK zk = base.new ZK("203.82.206.78", 43107, 102159);
-        Base.ZK zk = base.new ZK("192.168.34.11", 43107, 102159);
+        Base.ZK zk = base.new ZK("203.82.206.78", 43107, 102159);
+        //Base.ZK zk = base.new ZK("192.168.34.11", 43107, 102159);
         try {
             zk.connect();
         } catch (Exception e) {
-            System.out.println(e.toString());
+//            System.out.println(e.toString());
+            e.printStackTrace();
         }
 
     }

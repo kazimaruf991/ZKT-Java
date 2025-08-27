@@ -285,45 +285,23 @@ public class Base {
         // Create TCP top header
         private byte[] createTcpTop(byte[] packet) {
             int length = packet.length;
-            byte[] top =  pack("HHI", DeviceConstants.MACHINE_PREPARE_DATA_1, DeviceConstants.MACHINE_PREPARE_DATA_2, length);
-
-            byte[] combined = new byte[top.length + packet.length];
-
-            System.arraycopy(top, 0, combined, 0, top.length);
-
-            System.arraycopy(packet, 0, combined, top.length, packet.length);
-
-            return combined;
+            byte[] top =  pack("<HHI", DeviceConstants.MACHINE_PREPARE_DATA_1, DeviceConstants.MACHINE_PREPARE_DATA_2, length);
+            return concat(top, packet);
         }
 
         // Create packet header
         private byte[] createHeader(int command, byte[] commandString, int sessionId, int replyId) {
-            ByteBuffer buf = ByteBuffer.allocate(8 + commandString.length);
-            buf.order(ByteOrder.LITTLE_ENDIAN);
-            buf.putShort((short) command);
-            buf.putShort((short) 0); // Placeholder
-            buf.putShort((short) sessionId);
-            buf.putShort((short) replyId);
-            buf.put(commandString);
+             byte[] buf = concat(pack("<4H", command, 0, sessionId, replyId), commandString);
+             buf = unpack("8B" + commandString.length + "B",  buf);
+             byte checksum = unpack("H", createChecksum(buf))[0];
+             replyId += 1;
+             if (replyId >= DeviceConstants.USHRT_MAX){
+                 replyId -= DeviceConstants.USHRT_MAX;
+             }
 
-            byte[] rawBuf = buf.array();
-            byte[] checksumBuf = createChecksum(rawBuf);
-            int checksum = ByteBuffer.wrap(checksumBuf).order(ByteOrder.LITTLE_ENDIAN).getShort() & 0xFFFF;
+             buf = pack("<4H", command, checksum, sessionId, replyId);
 
-            replyId += 1;
-            if (replyId >= DeviceConstants.USHRT_MAX) {
-                replyId -= DeviceConstants.USHRT_MAX;
-            }
-
-            ByteBuffer finalBuf = ByteBuffer.allocate(8 + commandString.length);
-            finalBuf.order(ByteOrder.LITTLE_ENDIAN);
-            finalBuf.putShort((short) command);
-            finalBuf.putShort((short) checksum);
-            finalBuf.putShort((short) sessionId);
-            finalBuf.putShort((short) replyId);
-            finalBuf.put(commandString);
-
-            return finalBuf.array();
+             return concat(buf, commandString);
         }
 
 
@@ -1096,20 +1074,48 @@ public class Base {
 
         // Pack values into byte array using format string
         public byte[] pack(String format, Object... values) {
-            ByteBuffer buffer = ByteBuffer.allocate(1024).order(ByteOrder.LITTLE_ENDIAN);
-            int index = 0;
+            if (format.isEmpty()) {
+                throw new IllegalArgumentException("Format string cannot be empty");
+            }
 
-            for (char fmt : format.toCharArray()) {
+            // Default to little-endian unless specified
+            ByteOrder byteOrder = ByteOrder.LITTLE_ENDIAN;
+            int fmtIndex = 0;
+
+            // Check for endian specifier
+            char firstChar = format.charAt(0);
+            if (firstChar == '<') {
+                byteOrder = ByteOrder.LITTLE_ENDIAN;
+                fmtIndex = 1;
+            } else if (firstChar == '>') {
+                byteOrder = ByteOrder.BIG_ENDIAN;
+                fmtIndex = 1;
+            }
+
+            ByteBuffer buffer = ByteBuffer.allocate(1024).order(byteOrder);
+            int valueIndex = 0;
+
+            for (int i = fmtIndex; i < format.length(); i++) {
+                char fmt = format.charAt(i);
                 switch (fmt) {
-                    case 'B': buffer.put((byte) ((int) values[index++])); break;
-                    case 'H': buffer.putShort((short) ((int) values[index++])); break;
-                    case 'I': buffer.putInt((int) values[index++]); break;
+                    case 'B':
+                        buffer.put((byte) ((int) values[valueIndex++]));
+                        break;
+                    case 'H':
+                        buffer.putShort((short) ((int) values[valueIndex++]));
+                        break;
+                    case 'I':
+                        buffer.putInt((int) values[valueIndex++]);
+                        break;
                     case 's':
-                        byte[] strBytes = (byte[]) values[index++];
+                        byte[] strBytes = (byte[]) values[valueIndex++];
                         buffer.put(strBytes);
                         break;
-                    case 'x': buffer.put((byte) 0); break; // padding
-                    default: throw new IllegalArgumentException("Unsupported format: " + fmt);
+                    case 'x':
+                        buffer.put((byte) 0); // padding
+                        break;
+                    default:
+                        throw new IllegalArgumentException("Unsupported format: " + fmt);
                 }
             }
 
@@ -1119,24 +1125,68 @@ public class Base {
             return packed;
         }
 
-        // Unpack byte array into values using format string
-        public Object[] unpack(String format, byte[] data) {
-            ByteBuffer buffer = ByteBuffer.wrap(data).order(ByteOrder.LITTLE_ENDIAN);
-            List<Object> result = new ArrayList<>();
+//        public byte[] pack(String format, Object... values) {
+//            ByteBuffer buffer = ByteBuffer.allocate(1024).order(ByteOrder.LITTLE_ENDIAN);
+//            int index = 0;
+//
+//            for (char fmt : format.toCharArray()) {
+//                switch (fmt) {
+//                    case 'B': buffer.put((byte) ((int) values[index++])); break;
+//                    case 'H': buffer.putShort((short) ((int) values[index++])); break;
+//                    case 'I': buffer.putInt((int) values[index++]); break;
+//                    case 's':
+//                        byte[] strBytes = (byte[]) values[index++];
+//                        buffer.put(strBytes);
+//                        break;
+//                    case 'x': buffer.put((byte) 0); break; // padding
+//                    default: throw new IllegalArgumentException("Unsupported format: " + fmt);
+//                }
+//            }
+//
+//            buffer.flip();
+//            byte[] packed = new byte[buffer.limit()];
+//            buffer.get(packed);
+//            return packed;
+//        }
 
-            for (char fmt : format.toCharArray()) {
+        // Unpack byte array into values using format string
+        public static byte[] unpack(String format, byte[] data) {
+            ByteBuffer buffer = ByteBuffer.wrap(data).order(ByteOrder.LITTLE_ENDIAN);
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+
+            for (int i = 0; i < format.length(); i++) {
+                char fmt = format.charAt(i);
                 switch (fmt) {
-                    case 'B': result.add(buffer.get() & 0xFF); break;
-                    case 'H': result.add(buffer.getShort() & 0xFFFF); break;
-                    case 'I': result.add(buffer.getInt()); break;
-                    case 'x': buffer.get(); break; // skip padding
-                    default: throw new IllegalArgumentException("Unsupported format: " + fmt);
+                    case 'B': {
+                        byte b = buffer.get();
+                        out.write(b);
+                        break;
+                    }
+                    case 'H': {
+                        short s = buffer.getShort();
+                        out.write(s & 0xFF);         // low byte
+                        out.write((s >> 8) & 0xFF);  // high byte
+                        break;
+                    }
+                    case 'I': {
+                        int val = buffer.getInt();
+                        out.write(val & 0xFF);
+                        out.write((val >> 8) & 0xFF);
+                        out.write((val >> 16) & 0xFF);
+                        out.write((val >> 24) & 0xFF);
+                        break;
+                    }
+                    case 'x': {
+                        buffer.get(); // skip padding byte
+                        break;
+                    }
+                    default:
+                        throw new IllegalArgumentException("Unsupported format: " + fmt);
                 }
             }
 
-            return result.toArray();
+            return out.toByteArray();
         }
-
         public Object[] unpack(String format, byte[] data, int offset) {
             List<Object> result = new ArrayList<>();
             ByteBuffer buffer = ByteBuffer.wrap(data);
@@ -1299,7 +1349,7 @@ public class Base {
 
             templatedata = Arrays.copyOfRange(templatedata, 4, templatedata.length);
             while (totalSize > 0 && templatedata.length >= 6) {
-                Object[] header = unpack("HHbb", Arrays.copyOfRange(templatedata, 0, 6));
+                byte[] header = unpack("HHbb", Arrays.copyOfRange(templatedata, 0, 6));
                 int recordSize = (int) header[0];
                 int uid = (int) header[1];
                 int fid = (byte) header[2];
@@ -1354,11 +1404,11 @@ public class Base {
             if (this.userPacketSize == 28) {
                 while (userdata.length >= 28) {
                     byte[] chunk = Arrays.copyOf(userdata, 28);
-                    Object[] fields = unpack("<HB5s8sIxBhI", chunk);
+                    byte[] fields = unpack("<HB5s8sIxBhI", chunk);
                     int uid = (int) fields[0];
                     int privilege = (int) fields[1];
-                    String password = new String((byte[]) fields[2], this.encoding).split("\0")[0];
-                    String name = new String((byte[]) fields[3], this.encoding).split("\0")[0].trim();
+                    String password = new String(fields, this.encoding).split("\0")[2];
+                    String name = new String(fields, this.encoding).split("\0")[3].trim();
                     int card = (int) fields[4];
                     String groupId = String.valueOf(fields[5]);
                     String userId = String.valueOf(fields[7]);
@@ -1378,13 +1428,13 @@ public class Base {
             } else {
                 while (userdata.length >= 72) {
                     byte[] chunk = Arrays.copyOf(userdata, 72);
-                    Object[] fields = unpack("<HB8s24sIx7sx24s", chunk);
+                    byte[] fields = unpack("<HB8s24sIx7sx24s", chunk);
                     int uid = (int) fields[0];
                     int privilege = (int) fields[1];
-                    String password = new String((byte[]) fields[2], this.encoding).split("\0")[0];
-                    String name = new String((byte[]) fields[3], this.encoding).split("\0")[0].trim();
-                    String groupId = new String((byte[]) fields[5], this.encoding).split("\0")[0].trim();
-                    String userId = new String((byte[]) fields[6], this.encoding).split("\0")[0];
+                    String password = new String(fields, this.encoding).split("\0")[2];
+                    String name = new String( fields, this.encoding).split("\0")[3].trim();
+                    String groupId = new String(fields, this.encoding).split("\0")[5].trim();
+                    String userId = new String( fields, this.encoding).split("\0")[6];
                     int card = (int) fields[4];
 
                     if (uid > maxUid) maxUid = uid;
