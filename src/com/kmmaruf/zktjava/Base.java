@@ -204,7 +204,7 @@ public class Base {
         public int userPacketSize = 28; // default zk6
         public boolean endLiveCapture = false;
         private int response;  // Holds the full response payload from device or socket
-        private byte[] header;    // Holds the protocol-specific header portion
+        private Object[] header;    // Holds the protocol-specific header portion
         private int tcpLength;
 
         /**
@@ -380,13 +380,7 @@ public class Base {
                         throw new ZKNetworkError("TCP packet invalid");
                     }
 
-                    ByteBuffer headerBuf = ByteBuffer.wrap(tcpDataRecv, 8, 8).order(ByteOrder.LITTLE_ENDIAN);
-                    this.header = new byte[8];
-                    for (int i = 0; i < 4; i++) {
-                        short value = (short)(headerBuf.getShort() & 0xFFFF);
-                        this.header[i * 2]     = (byte)((value >> 8) & 0xFF); // High byte
-                        this.header[i * 2 + 1] = (byte)(value & 0xFF);        // Low byte
-                    }
+                    this.header = Struct.unpack("<4H", Arrays.copyOfRange(tcpDataRecv, 8, 16));
 
                     this.dataRecv = Arrays.copyOfRange(tcpDataRecv, 8, tcpDataRecv.length);
                 } else {
@@ -397,30 +391,27 @@ public class Base {
                     this.udpSocket.receive(packet);
 
                     this.dataRecv = recvBuf;
-                    ByteBuffer headerBuf = ByteBuffer.wrap(recvBuf, 0, 8).order(ByteOrder.LITTLE_ENDIAN);
-                    this.header = new byte[8];
-                    for (int i = 0; i < 4; i++) {
-                        int value = headerBuf.getShort() & 0xFFFF;
-                        this.header[i * 2]     = (byte)((value >> 8) & 0xFF); // High byte
-                        this.header[i * 2 + 1] = (byte)(value & 0xFF);        // Low byte
-                    }
+                    this.header = Struct.unpack("<4H", Arrays.copyOfRange(this.dataRecv, 0, 8));
                 }
             } catch (IOException e) {
                 throw new ZKNetworkError(e.getMessage());
             }
 
-            this.response = this.header[0];
-            this.replyId = this.header[3];
+            this.response = (int) this.header[0];
+            this.replyId = (int) this.header[3];
             this.data = Arrays.copyOfRange(this.dataRecv, 8, this.dataRecv.length);
 
-            Map<String, Object> result = new HashMap<>();
-            result.put("code", this.response);
-            result.put("status", Arrays.asList(
-                    DeviceConstants.CMD_ACK_OK,
-                    DeviceConstants.CMD_PREPARE_DATA,
-                    DeviceConstants.CMD_DATA
-            ).contains(this.response));
 
+            Map<String, Object> result = new HashMap<>();
+
+            if (this.response == DeviceConstants.CMD_ACK_OK || this.response == DeviceConstants.CMD_PREPARE_DATA || this.response == DeviceConstants.CMD_DATA){
+                result.put("code", this.response);
+                result.put("status", true);
+                return result;
+            }
+
+            result.put("code", this.response);
+            result.put("status", false);
             return result;
         }
 //
@@ -519,10 +510,10 @@ public class Base {
 
             createSocket();
             this.sessionId = 0;
-            this.replyId = 0xFFFF;
+            this.replyId = DeviceConstants.USHRT_MAX - 1;
 
             Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_CONNECT);
-            this.sessionId = Byte.toUnsignedInt(this.header[2]);
+            this.sessionId = (int) this.header[2];//Byte.toUnsignedInt(this.header[2]);
 
             if ((int) cmdResponse.get("code") == DeviceConstants.CMD_ACK_UNAUTH) {
                 if (this.verbose) System.out.println("Try auth");
@@ -567,16 +558,16 @@ public class Base {
 //            }
 //        }
 //
-//        public boolean disableDevice() throws Exception {
-//            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_DISABLEDEVICE);
-//
-//            if ((boolean) cmdResponse.get("status")) {
-//                this.isEnabled = false;
-//                return true;
-//            } else {
-//                throw new ZKErrorResponse("Can't disable device");
-//            }
-//        }
+        public boolean disableDevice() throws Exception {
+            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_DISABLEDEVICE);
+
+            if ((boolean) cmdResponse.get("status")) {
+                this.isEnabled = false;
+                return true;
+            } else {
+                throw new ZKErrorResponse("Can't disable device");
+            }
+        }
 //
 //        public String getFirmwareVersion() throws Exception {
 //            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_GET_VERSION, new byte[0], 1024);
@@ -628,135 +619,142 @@ public class Base {
 //            }
 //        }
 //
-//        public int getFaceVersion() throws Exception {
-//            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_OPTIONS_RRQ, "ZKFaceVersion\u0000".getBytes(), 1024);
-//            if ((boolean) cmdResponse.get("status")) {
-//                byte[] raw = extractValue(this.data);
-//                return safeCast(raw, 0);
-//            } else {
-//                return 0;
-//            }
-//        }
-//
-//        public int getFpVersion() throws Exception {
-//            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_OPTIONS_RRQ, "~ZKFPVersion\u0000".getBytes(), 1024);
-//            if ((boolean) cmdResponse.get("status")) {
-//                byte[] raw = extractValue(this.data);
-//                return safeCast(raw, 0);
-//            } else {
-//                throw new ZKErrorResponse("Can't read fingerprint version");
-//            }
-//        }
-//
-//        public void clearError() throws Exception{
-//            clearError(new byte[0]);
-//        }
-//        public void clearError(byte[] commandString) throws Exception {
-//            sendCommand(DeviceConstants.CMD_ACK_ERROR, commandString, 1024);
-//            sendCommand(DeviceConstants.CMD_ACK_UNKNOWN, commandString, 1024);
-//            sendCommand(DeviceConstants.CMD_ACK_UNKNOWN, commandString, 1024);
-//            sendCommand(DeviceConstants.CMD_ACK_UNKNOWN, commandString, 1024);
-//        }
-//
-//        private byte[] extractValue(byte[] data) {
-//            int start = indexOf(data, (byte) '=') + 1;
-//            int end = indexOf(data, (byte) 0, start);
-//            return Arrays.copyOfRange(data, start, end);
-//        }
-//
-//        private int indexOf(byte[] array, byte value) {
-//            return indexOf(array, value, 0);
-//        }
-//
-//        private int indexOf(byte[] array, byte value, int start) {
-//            for (int i = start; i < array.length; i++) {
-//                if (array[i] == value) return i;
-//            }
-//            return array.length;
-//        }
-//
-//        private int safeCast(byte[] raw, int fallback) {
-//            try {
-//                return Integer.parseInt(new String(raw).replace("=", ""));
-//            } catch (NumberFormatException e) {
-//                return fallback;
-//            }
-//        }
-//
-//        public Integer getExtendFmt() throws Exception {
-//            byte[] commandString = "~ExtendFmt\u0000".getBytes();
-//            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_OPTIONS_RRQ, commandString, 1024);
-//            if ((boolean) cmdResponse.get("status")) {
-//                byte[] fmt = extractValue(this.data);
-//                return safeCast(fmt, 0);
-//            } else {
-//                clearError(commandString);
-//                return null;
-//            }
-//        }
-//
-//        public Integer getUserExtendFmt() throws Exception {
-//            byte[] commandString = "~UserExtFmt\u0000".getBytes();
-//            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_OPTIONS_RRQ, commandString, 1024);
-//            if ((boolean) cmdResponse.get("status")) {
-//                byte[] fmt = extractValue(this.data);
-//                return safeCast(fmt, 0);
-//            } else {
-//                clearError(commandString);
-//                return null;
-//            }
-//        }
-//
-//        public Integer getFaceFunOn() throws Exception {
-//            byte[] commandString = "FaceFunOn\u0000".getBytes();
-//            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_OPTIONS_RRQ, commandString, 1024);
-//            if ((boolean) cmdResponse.get("status")) {
-//                byte[] response = extractValue(this.data);
-//                return safeCast(response, 0);
-//            } else {
-//                clearError(commandString);
-//                return null;
-//            }
-//        }
-//
-//        public Integer getCompatOldFirmware() throws Exception{
-//            byte[] commandString = "CompatOldFirmware\u0000".getBytes();
-//            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_OPTIONS_RRQ, commandString, 1024);
-//            if ((boolean) cmdResponse.get("status")) {
-//                byte[] response = extractValue(this.data);
-//                return safeCast(response, 0);
-//            } else {
-//                clearError(commandString);
-//                return null;
-//            }
-//        }
-//
-//        public Map<String, String> getNetworkParams() throws Exception{
-//            String ip = this.address.getHostName();
-//            String mask = "";
-//            String gate = "";
-//
-//            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_OPTIONS_RRQ, "IPAddress\u0000".getBytes(), 1024);
-//            if ((boolean) cmdResponse.get("status")) {
-//                ip = new String(extractValue(this.data));
-//            }
-//
-//            cmdResponse = sendCommand(DeviceConstants.CMD_OPTIONS_RRQ, "NetMask\u0000".getBytes(), 1024);
-//            if ((boolean) cmdResponse.get("status")) {
-//                mask = new String(extractValue(this.data));
-//            }
-//
-//            cmdResponse = sendCommand(DeviceConstants.CMD_OPTIONS_RRQ, "GATEIPAddress\u0000".getBytes(), 1024);
-//            if ((boolean) cmdResponse.get("status")) {
-//                gate = new String(extractValue(this.data));
-//            }
-//
-//            Map<String, String> result = new HashMap<>();
-//            result.put("ip", ip);
-//            result.put("mask", mask);
-//            result.put("gateway", gate);
-//            return result;
-//        }
+        public int getFaceVersion() throws Exception {
+            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_OPTIONS_RRQ, "ZKFaceVersion\u0000".getBytes(), 1024);
+            if ((boolean) cmdResponse.get("status")) {
+                byte[] raw = extractValue(this.data);
+                return safeCast(raw, 0);
+            } else {
+                return 0;
+            }
+        }
+
+        public int getFpVersion() throws Exception {
+            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_OPTIONS_RRQ, "~ZKFPVersion\u0000".getBytes(), 1024);
+            if ((boolean) cmdResponse.get("status")) {
+                byte[] raw = extractValue(this.data);
+                return safeCast(raw, 0);
+            } else {
+                throw new ZKErrorResponse("Can't read fingerprint version");
+            }
+        }
+
+        public void clearError() throws Exception{
+            clearError(new byte[0]);
+        }
+        public void clearError(byte[] commandString) throws Exception {
+            sendCommand(DeviceConstants.CMD_ACK_ERROR, commandString, 1024);
+            sendCommand(DeviceConstants.CMD_ACK_UNKNOWN, commandString, 1024);
+            sendCommand(DeviceConstants.CMD_ACK_UNKNOWN, commandString, 1024);
+            sendCommand(DeviceConstants.CMD_ACK_UNKNOWN, commandString, 1024);
+        }
+
+        private byte[] extractValue(byte[] data) {
+            int start = indexOf(data, (byte) '=') + 1;
+            int end = indexOf(data, (byte) 0, start);
+            return Arrays.copyOfRange(data, start, end);
+        }
+
+        private int indexOf(byte[] array, byte value) {
+            return indexOf(array, value, 0);
+        }
+
+        private int indexOf(byte[] array, byte value, int start) {
+            for (int i = start; i < array.length; i++) {
+                if (array[i] == value) return i;
+            }
+            return array.length;
+        }
+
+        private int safeCast(byte[] raw, int fallback) {
+            try {
+                return Integer.parseInt(new String(raw).replace("=", ""));
+            } catch (NumberFormatException e) {
+                return fallback;
+            }
+        }
+
+        public Integer getExtendFmt() throws Exception {
+            /*
+                Determine extend fmt
+            */
+
+            byte[] commandString = "~ExtendFmt\u0000".getBytes();
+            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_OPTIONS_RRQ, commandString, 1024);
+            if ((boolean) cmdResponse.get("status")) {
+                byte[] fmt = extractValue(this.data);
+                return safeCast(fmt, 0);
+            } else {
+                clearError(commandString);
+                return null;
+            }
+        }
+
+        public Integer getUserExtendFmt() throws Exception {
+            byte[] commandString = "~UserExtFmt\u0000".getBytes();
+            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_OPTIONS_RRQ, commandString, 1024);
+            if ((boolean) cmdResponse.get("status")) {
+                byte[] fmt = extractValue(this.data);
+                return safeCast(fmt, 0);
+            } else {
+                clearError(commandString);
+                return null;
+            }
+        }
+
+        public Integer getFaceFunOn() throws Exception {
+            byte[] commandString = "FaceFunOn\u0000".getBytes();
+            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_OPTIONS_RRQ, commandString, 1024);
+            if ((boolean) cmdResponse.get("status")) {
+                byte[] response = extractValue(this.data);
+                return safeCast(response, 0);
+            } else {
+                clearError(commandString);
+                return null;
+            }
+        }
+
+        public Integer getCompatOldFirmware() throws Exception{
+            byte[] commandString = "CompatOldFirmware\u0000".getBytes();
+            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_OPTIONS_RRQ, commandString, 1024);
+            if ((boolean) cmdResponse.get("status")) {
+                byte[] response = extractValue(this.data);
+                return safeCast(response, 0);
+            } else {
+                clearError(commandString);
+                return null;
+            }
+        }
+
+        public Map<String, String> getNetworkParams() throws Exception{
+            /*
+            get network params
+             */
+            String ip = this.address.getHostName();
+            String mask = "";
+            String gate = "";
+
+            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_OPTIONS_RRQ, "IPAddress\u0000".getBytes(), 1024);
+            if ((boolean) cmdResponse.get("status")) {
+                ip = new String(extractValue(this.data));
+            }
+
+            cmdResponse = sendCommand(DeviceConstants.CMD_OPTIONS_RRQ, "NetMask\u0000".getBytes(), 1024);
+            if ((boolean) cmdResponse.get("status")) {
+                mask = new String(extractValue(this.data));
+            }
+
+            cmdResponse = sendCommand(DeviceConstants.CMD_OPTIONS_RRQ, "GATEIPAddress\u0000".getBytes(), 1024);
+            if ((boolean) cmdResponse.get("status")) {
+                gate = new String(extractValue(this.data));
+            }
+
+            Map<String, String> result = new HashMap<>();
+            result.put("ip", ip);
+            result.put("mask", mask);
+            result.put("gateway", gate);
+            return result;
+        }
 //
 //        public int getPinWidth() throws Exception {
 //            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_GET_PINWIDTH, " P".getBytes(), 9);
@@ -1120,29 +1118,7 @@ public class Base {
 //            return packed;
 //        }
 //
-////        public byte[] Struct.pack(String format, Object... values) {
-////            ByteBuffer buffer = ByteBuffer.allocate(1024).order(ByteOrder.LITTLE_ENDIAN);
-////            int index = 0;
-////
-////            for (char fmt : format.toCharArray()) {
-////                switch (fmt) {
-////                    case 'B': buffer.put((byte) ((int) values[index++])); break;
-////                    case 'H': buffer.putShort((short) ((int) values[index++])); break;
-////                    case 'I': buffer.putInt((int) values[index++]); break;
-////                    case 's':
-////                        byte[] strBytes = (byte[]) values[index++];
-////                        buffer.put(strBytes);
-////                        break;
-////                    case 'x': buffer.put((byte) 0); break; // padding
-////                    default: throw new IllegalArgumentException("Unsupported format: " + fmt);
-////                }
-////            }
-////
-////            buffer.flip();
-////            byte[] packed = new byte[buffer.limit()];
-////            buffer.get(packed);
-////            return packed;
-////        }
+
 //
 //        // Unpack byte array into values using format string
 //        public static byte[] unpack(String format, byte[] data) {
@@ -1479,11 +1455,11 @@ public class Base {
 //            }
 //        }
 //
-//        public boolean setSdkBuild1() throws Exception{
-//            byte[] commandString = "SDKBuild=1".getBytes();
-//            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_OPTIONS_WRQ, commandString);
-//            return (boolean) cmdResponse.get("status");
-//        }
+        public boolean setSdkBuild1() throws Exception{
+            byte[] commandString = "SDKBuild=1".getBytes();
+            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_OPTIONS_WRQ, commandString);
+            return (boolean) cmdResponse.get("status");
+        }
 //
 //
 //        public boolean enrollUser(int uid, int tempId, String userId) throws Exception {

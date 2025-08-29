@@ -127,6 +127,6 @@ public class DeviceConstants {
     public static final int FCT_UDATA = 7;
 
     // Machine preparation flags
-    public static final int MACHINE_PREPARE_DATA_1 = 0x5050; // 20560
-    public static final int MACHINE_PREPARE_DATA_2 = 0x7282; // 32130
+    public static final int MACHINE_PREPARE_DATA_1 = 20560; //0x5050;
+    public static final int MACHINE_PREPARE_DATA_2 = 32130; //0x7282;
 }
