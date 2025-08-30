@@ -1,5 +1,6 @@
 import com.kmmaruf.zktjava.Base;
 
+import java.time.LocalDateTime;
 import java.util.Map;
 
 //TIP To <b>Run</b> code, press <shortcut actionId="Run"/> or
@@ -29,6 +30,30 @@ public class Main {
             }else {
                 System.out.println("Can't get network param from device");
             }
+
+            LocalDateTime machineDateTime = zk.getTime();
+            System.out.println("Machine Time      : " + machineDateTime.toString());
+
+            System.out.println ("Firmware Version : " + zk.getFirmwareVersion());
+            System.out.println ("Platform         : " + zk.getPlatform());
+            System.out.println ("DeviceName       : " + zk.getDeviceName());
+            System.out.println ("Pin Width        : " + zk.getPinWidth());
+            System.out.println ("Serial Number    : " + zk.getSerialNumber());
+            System.out.println ("MAC              : " + zk.getMac());
+            System.out.println (" ");
+            System.out.println ("--- sizes & capacity ---");
+            zk.readSizes();
+            System.out.println (zk);
+            System.out.println (" ");
+
+
+
+            System.out.println("Enabling device....");
+            zk.enableDevice();
+            zk.disconnect();
+            System.out.println("Device disconnected!");
+
+
         } catch (Exception e) {
 //            System.out.println(e.toString());
             e.printStackTrace();

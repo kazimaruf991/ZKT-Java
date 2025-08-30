@@ -52,23 +52,26 @@ public class Struct {
             for (int i = 0; i < tok.count; i++) {
                 switch (tok.type) {
                     case 'B':
-                        out.add(buf.get() & 0xFF);
+                        out.add(buf.get() & 0xFF); // unsigned byte
                         break;
                     case 'H':
-                        out.add(buf.getShort() & 0xFFFF);
+                        out.add(buf.getShort() & 0xFFFF); // unsigned short
                         break;
                     case 'I':
-                        out.add(buf.getInt());
+                        out.add(buf.getInt()); // unsigned int (Java int range)
+                        break;
+                    case 'i':
+                        out.add(buf.getInt()); // signed int
                         break;
                     case 's': {
                         byte[] str = new byte[tok.count];
                         buf.get(str);
                         out.add(str);
-                        i = tok.count - 1;
+                        i = tok.count - 1; // skip remaining iterations
                         break;
                     }
                     case 'x':
-                        buf.get();
+                        buf.get(); // skip padding byte
                         break;
                     default:
                         throw new IllegalArgumentException("Unsupported type: " + tok.type);
@@ -76,18 +79,6 @@ public class Struct {
             }
         }
         return out.toArray();
-    }
-
-    private static class ParsedFormat {
-        ByteOrder byteOrder;
-        List<FmtToken> tokens = new ArrayList<>();
-        int size = 0;
-    }
-
-    private static class FmtToken {
-        char type;
-        int count;
-        FmtToken(char t, int c) { type = t; count = c; }
     }
 
     private static ParsedFormat parseFormat(String format) {
@@ -117,6 +108,7 @@ public class Struct {
                 case 'B': pf.size += count; break;
                 case 'H': pf.size += 2 * count; break;
                 case 'I': pf.size += 4 * count; break;
+                case 'i': pf.size += 4 * count; break;
                 case 's': pf.size += count; break;
                 case 'x': pf.size += count; break;
                 default:
@@ -124,6 +116,18 @@ public class Struct {
             }
         }
         return pf;
+    }
+
+    private static class ParsedFormat {
+        ByteOrder byteOrder;
+        List<FmtToken> tokens = new ArrayList<>();
+        int size = 0;
+    }
+
+    private static class FmtToken {
+        char type;
+        int count;
+        FmtToken(char t, int c) { type = t; count = c; }
     }
 
     // Quick test

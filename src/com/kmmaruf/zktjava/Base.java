@@ -430,14 +430,14 @@ public class Base {
 //            }
 //        }
 //
-//        // Gets data size from CMD_PREPARE_DATA response
-//        private int getDataSize() {
-//            if (this.response == DeviceConstants.CMD_PREPARE_DATA) {
-//                ByteBuffer buf = ByteBuffer.wrap(this.data, 0, 4).order(ByteOrder.LITTLE_ENDIAN);
-//                return buf.getInt();
-//            }
-//            return 0;
-//        }
+        // Gets data size from CMD_PREPARE_DATA response
+        private int getDataSize() {
+            if (this.response == DeviceConstants.CMD_PREPARE_DATA) {
+                ByteBuffer buf = ByteBuffer.wrap(this.data, 0, 4).order(ByteOrder.LITTLE_ENDIAN);
+                return buf.getInt();
+            }
+            return 0;
+        }
 //
 //        // Reverses hex string
 //        private String reverseHex(String hex) {
@@ -448,30 +448,54 @@ public class Base {
 //            return data.toString();
 //        }
 //
-//        private LocalDateTime decodeTime(byte[] t) {
-//            ByteBuffer buffer = ByteBuffer.wrap(t).order(ByteOrder.LITTLE_ENDIAN);
-//            long raw = Integer.toUnsignedLong(buffer.getInt());
+        private LocalDateTime decodeTime(byte[] t) {
+            ByteBuffer buffer = ByteBuffer.wrap(t).order(ByteOrder.LITTLE_ENDIAN);
+            long raw = Integer.toUnsignedLong(buffer.getInt());
+
+            int second = (int)(raw % 60);
+            raw /= 60;
+
+            int minute = (int)(raw % 60);
+            raw /= 60;
+
+            int hour = (int)(raw % 24);
+            raw /= 24;
+
+            int day = (int)(raw % 31) + 1;
+            raw /= 31;
+
+            int month = (int)(raw % 12) + 1;
+            raw /= 12;
+
+            int year = (int)(raw + 2000);
+
+            return LocalDateTime.of(year, month, day, hour, minute, second);
+        }
+
+//        public LocalDateTime parseTime(long intTimeValue)
+//        {
+//            int TotalDays;
+//            int second;
+//            int minute;
+//            int hour;
+//            int day;
+//            int month;
+//            int year;
 //
-//            int second = (int)(raw % 60);
-//            raw /= 60;
-//
-//            int minute = (int)(raw % 60);
-//            raw /= 60;
-//
-//            int hour = (int)(raw % 24);
-//            raw /= 24;
-//
-//            int day = (int)(raw % 31) + 1;
-//            raw /= 31;
-//
-//            int month = (int)(raw % 12) + 1;
-//            raw /= 12;
-//
-//            int year = (int)(raw + 2000);
-//
+//            second = (int) (intTimeValue % 60);
+//            minute = (int) (intTimeValue / 60 % 60);
+//            TotalDays = (int) (intTimeValue / 60 / 60 / 24);
+//            hour = (int) (intTimeValue / 60 / 60 % 24);
+//            day = TotalDays % 31 + 1;
+//            month = TotalDays / 31 % 12 + 1;
+//            year = TotalDays / 31 / 12 + 2000;
+//            //parseExtraInfo(dtInfo);
+//            if (minute < 0)
+//                minute = 0;
 //            return LocalDateTime.of(year, month, day, hour, minute, second);
 //        }
-//
+
+        //
 //        private LocalDateTime decodeTimeHex(byte[] timehex) {
 //            if (timehex.length != 6) throw new IllegalArgumentException("Expected 6 bytes");
 //
@@ -532,32 +556,36 @@ public class Base {
                 throw new ZKErrorResponse("Invalid response: Can't connect");
             }
         }
-//
-//        public boolean disconnect() throws Exception {
-//            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_EXIT);
-//
-//            if ((boolean) cmdResponse.get("status")) {
-//                this.isConnect = false;
-//                if (this.tcpSocket != null) {
-//                    this.tcpSocket.close();
-//                }
-//                return true;
-//            } else {
-//                throw new ZKErrorResponse("Can't disconnect");
-//            }
-//        }
-//
-//        public boolean enableDevice() throws Exception {
-//            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_ENABLEDEVICE);
-//
-//            if ((boolean) cmdResponse.get("status")) {
-//                this.isEnabled = true;
-//                return true;
-//            } else {
-//                throw new ZKErrorResponse("Can't enable device");
-//            }
-//        }
-//
+
+        public boolean disconnect() throws Exception {
+            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_EXIT);
+
+            if ((boolean) cmdResponse.get("status")) {
+                this.isConnect = false;
+                if (this.tcpSocket != null) {
+                    this.tcpSocket.close();
+                }
+
+                if (this.udpSocket != null){
+                    this.udpSocket.close();
+                }
+                return true;
+            } else {
+                throw new ZKErrorResponse("Can't disconnect");
+            }
+        }
+
+        public boolean enableDevice() throws Exception {
+            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_ENABLEDEVICE);
+
+            if ((boolean) cmdResponse.get("status")) {
+                this.isEnabled = true;
+                return true;
+            } else {
+                throw new ZKErrorResponse("Can't enable device");
+            }
+        }
+
         public boolean disableDevice() throws Exception {
             Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_DISABLEDEVICE);
 
@@ -568,57 +596,57 @@ public class Base {
                 throw new ZKErrorResponse("Can't disable device");
             }
         }
-//
-//        public String getFirmwareVersion() throws Exception {
-//            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_GET_VERSION, new byte[0], 1024);
-//            if ((boolean) cmdResponse.get("status")) {
-//                byte[] firmwareVersion = Arrays.copyOfRange(this.data, 0, indexOf(this.data, (byte) 0));
-//                return new String(firmwareVersion);
-//            } else {
-//                throw new ZKErrorResponse("Can't read firmware version");
-//            }
-//        }
-//
-//        public String getSerialNumber() throws Exception {
-//            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_OPTIONS_RRQ, "~SerialNumber\u0000".getBytes(), 1024);
-//            if ((boolean) cmdResponse.get("status")) {
-//                byte[] raw = extractValue(this.data);
-//                return new String(raw).replace("=", "");
-//            } else {
-//                throw new ZKErrorResponse("Can't read serial number");
-//            }
-//        }
-//
-//        public String getPlatform() throws Exception {
-//            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_OPTIONS_RRQ, "~Platform\u0000".getBytes(), 1024);
-//            if ((boolean) cmdResponse.get("status")) {
-//                byte[] raw = extractValue(this.data);
-//                return new String(raw).replace("=", "");
-//            } else {
-//                throw new ZKErrorResponse("Can't read platform name");
-//            }
-//        }
-//
-//        public String getMac() throws Exception {
-//            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_OPTIONS_RRQ, "MAC\u0000".getBytes(), 1024);
-//            if ((boolean) cmdResponse.get("status")) {
-//                byte[] raw = extractValue(this.data);
-//                return new String(raw);
-//            } else {
-//                throw new ZKErrorResponse("Can't read MAC address");
-//            }
-//        }
-//
-//        public String getDeviceName() throws Exception {
-//            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_OPTIONS_RRQ, "~DeviceName\u0000".getBytes(), 1024);
-//            if ((boolean) cmdResponse.get("status")) {
-//                byte[] raw = extractValue(this.data);
-//                return new String(raw);
-//            } else {
-//                return "";
-//            }
-//        }
-//
+
+        public String getFirmwareVersion() throws Exception {
+            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_GET_VERSION, new byte[0], 1024);
+            if ((boolean) cmdResponse.get("status")) {
+                byte[] firmwareVersion = Arrays.copyOfRange(this.data, 0, indexOf(this.data, (byte) 0));
+                return new String(firmwareVersion);
+            } else {
+                throw new ZKErrorResponse("Can't read firmware version");
+            }
+        }
+
+        public String getSerialNumber() throws Exception {
+            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_OPTIONS_RRQ, "~SerialNumber\u0000".getBytes(), 1024);
+            if ((boolean) cmdResponse.get("status")) {
+                byte[] raw = extractValue(this.data);
+                return new String(raw).replace("=", "");
+            } else {
+                throw new ZKErrorResponse("Can't read serial number");
+            }
+        }
+
+        public String getPlatform() throws Exception {
+            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_OPTIONS_RRQ, "~Platform\u0000".getBytes(), 1024);
+            if ((boolean) cmdResponse.get("status")) {
+                byte[] raw = extractValue(this.data);
+                return new String(raw).replace("=", "");
+            } else {
+                throw new ZKErrorResponse("Can't read platform name");
+            }
+        }
+
+        public String getMac() throws Exception {
+            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_OPTIONS_RRQ, "MAC\u0000".getBytes(), 1024);
+            if ((boolean) cmdResponse.get("status")) {
+                byte[] raw = extractValue(this.data);
+                return new String(raw);
+            } else {
+                throw new ZKErrorResponse("Can't read MAC address");
+            }
+        }
+
+        public String getDeviceName() throws Exception {
+            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_OPTIONS_RRQ, "~DeviceName\u0000".getBytes(), 1024);
+            if ((boolean) cmdResponse.get("status")) {
+                byte[] raw = extractValue(this.data);
+                return new String(raw);
+            } else {
+                return "";
+            }
+        }
+
         public int getFaceVersion() throws Exception {
             Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_OPTIONS_RRQ, "ZKFaceVersion\u0000".getBytes(), 1024);
             if ((boolean) cmdResponse.get("status")) {
@@ -755,68 +783,60 @@ public class Base {
             result.put("gateway", gate);
             return result;
         }
-//
-//        public int getPinWidth() throws Exception {
-//            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_GET_PINWIDTH, " P".getBytes(), 9);
-//            if ((boolean) cmdResponse.get("status")) {
-//                byte[] width = Arrays.copyOfRange(this.data, 0, indexOf(this.data, (byte) 0));
-//                return Byte.toUnsignedInt(width[0]);
-//            } else {
-//                throw new ZKErrorResponse("can't get pin width");
-//            }
-//        }
-//
-//        public boolean freeData() throws Exception {
-//            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_FREE_DATA, new byte[0], 0);
-//            if ((boolean) cmdResponse.get("status")) {
-//                return true;
-//            } else {
-//                throw new ZKErrorResponse("can't free data");
-//            }
-//        }
-//
-//        public boolean readSizes() throws Exception {
-//            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_GET_FREE_SIZES, new byte[0], 1024);
-//            if ((boolean) cmdResponse.get("status")) {
-//                if (this.verbose) {
-//                    System.out.println(BinUtils.byteArrayToHex(this.data));
-//                }
-//
-//                if (this.data.length >= 80) {
-//                    ByteBuffer buf = ByteBuffer.wrap(this.data).order(ByteOrder.LITTLE_ENDIAN);
-//                    int[] fields = new int[20];
-//                    for (int i = 0; i < 20; i++) {
-//                        fields[i] = buf.getInt();
-//                    }
-//                    this.users = fields[4];
-//                    this.fingers = fields[6];
-//                    this.records = fields[8];
-//                    this.dummy = fields[10];
-//                    this.cards = fields[12];
-//                    this.fingersCap = fields[14];
-//                    this.usersCap = fields[15];
-//                    this.recCap = fields[16];
-//                    this.fingersAv = fields[17];
-//                    this.usersAv = fields[18];
-//                    this.recAv = fields[19];
-//                    this.data = Arrays.copyOfRange(this.data, 80, this.data.length);
-//                }
-//
-//                if (this.data.length >= 12) {
-//                    ByteBuffer buf = ByteBuffer.wrap(this.data).order(ByteOrder.LITTLE_ENDIAN);
-//                    int[] faceFields = new int[3];
-//                    for (int i = 0; i < 3; i++) {
-//                        faceFields[i] = buf.getInt();
-//                    }
-//                    this.faces = faceFields[0];
-//                    this.facesCap = faceFields[2];
-//                }
-//
-//                return true;
-//            } else {
-//                throw new ZKErrorResponse("can't read sizes");
-//            }
-//        }
+
+        public int getPinWidth() throws Exception {
+            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_GET_PINWIDTH, " P".getBytes(), 9);
+            if ((boolean) cmdResponse.get("status")) {
+                byte[] width = Arrays.copyOfRange(this.data, 0, indexOf(this.data, (byte) 0));
+                return Byte.toUnsignedInt(width[0]);
+            } else {
+                throw new ZKErrorResponse("can't get pin width");
+            }
+        }
+
+        public boolean freeData() throws Exception {
+            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_FREE_DATA, new byte[0], 0);
+            if ((boolean) cmdResponse.get("status")) {
+                return true;
+            } else {
+                throw new ZKErrorResponse("can't free data");
+            }
+        }
+
+        public boolean readSizes() throws Exception {
+            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_GET_FREE_SIZES, new byte[0], 1024);
+            if ((boolean) cmdResponse.get("status")) {
+                if (this.verbose) {
+                    System.out.println(BinUtils.byteArrayToHex(this.data));
+                }
+
+                if (this.data.length >= 80) {
+                    Object[] fields = Struct.unpack("20i", Arrays.copyOfRange(this.data, 0, 80));
+                    this.users = (int) fields[4];
+                    this.fingers = (int) fields[6];
+                    this.records = (int) fields[8];
+                    this.dummy = (int) fields[10];
+                    this.cards = (int) fields[12];
+                    this.fingersCap = (int) fields[14];
+                    this.usersCap = (int) fields[15];
+                    this.recCap = (int) fields[16];
+                    this.fingersAv = (int) fields[17];
+                    this.usersAv = (int) fields[18];
+                    this.recAv = (int) fields[19];
+                    this.data = Arrays.copyOfRange(this.data, 80, this.data.length);
+                }
+
+                if (this.data.length >= 12) {
+                    Object[] faceFields = Struct.unpack("3i", Arrays.copyOfRange(this.data, 0, 12));
+                    this.faces = (int) faceFields[0];
+                    this.facesCap = (int) faceFields[2];
+                }
+
+                return true;
+            } else {
+                throw new ZKErrorResponse("can't read sizes");
+            }
+        }
 //
 //        public boolean unlock(int timeInSeconds) throws Exception {
 //            int delay = timeInSeconds * 10;
@@ -834,19 +854,19 @@ public class Base {
 //            return (boolean) cmdResponse.get("status");
 //        }
 //
-//        @Override
-//        public String toString() {
-//            return String.format("ZK %s://%s:%d users[%d]:%d/%d fingers:%d/%d, records:%d/%d faces:%d/%d",
-//                    this.tcp ? "tcp" : "udp",
-//                    this.address.getHostName(),
-//                    this.address.getPort(),
-//                    this.userPacketSize,
-//                    this.users, this.usersCap,
-//                    this.fingers, this.fingersCap,
-//                    this.records, this.recCap,
-//                    this.faces, this.facesCap
-//            );
-//        }
+        @Override
+        public String toString() {
+            return String.format("ZK %s://%s:%d users[%d]:%d/%d fingers:%d/%d, records:%d/%d faces:%d/%d",
+                    this.tcp ? "tcp" : "udp",
+                    this.address.getHostName(),
+                    this.address.getPort(),
+                    this.userPacketSize,
+                    this.users, this.usersCap,
+                    this.fingers, this.fingersCap,
+                    this.records, this.recCap,
+                    this.faces, this.facesCap
+            );
+        }
 //
 //        public boolean restart() throws Exception {
 //            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_RESTART);
@@ -883,15 +903,15 @@ public class Base {
 //            }
 //        }
 //
-//        public LocalDateTime getTime() throws Exception {
-//            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_GET_TIME, new byte[0], 1032);
-//            if ((boolean) cmdResponse.get("status")) {
-//                byte[] timeBytes = Arrays.copyOfRange(this.data, 0, 4);
-//                return decodeTime(timeBytes);
-//            } else {
-//                throw new ZKErrorResponse("Can't get time");
-//            }
-//        }
+        public LocalDateTime getTime() throws Exception {
+            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_GET_TIME, new byte[0], 1032);
+            if ((boolean) cmdResponse.get("status")) {
+                byte[] timeBytes = Arrays.copyOfRange(this.data, 0, 4);
+                return decodeTime(timeBytes);
+            } else {
+                throw new ZKErrorResponse("Can't get time");
+            }
+        }
 //
 //        public boolean setTime(LocalDateTime timestamp) throws Exception {
 //            int encoded = encodeTime(timestamp);
@@ -1338,100 +1358,100 @@ public class Base {
 //            return templates;
 //        }
 //
-//        public List<User> getUsers() throws Exception {
-//            readSizes();
-//            if (this.users == 0) {
-//                this.nextUid = 1;
-//                this.nextUserId = "1";
-//                return new ArrayList<>();
-//            }
-//
-//            List<User> users = new ArrayList<>();
-//            int maxUid = 0;
-//            ReadBufferResult result = readWithBuffer(DeviceConstants.CMD_USERTEMP_RRQ, DeviceConstants.FCT_USER);
-//            byte[] userdata = result.data;
-//            int size = result.size;
-//
-//            if (this.verbose) {
-//                System.out.printf("user size %d (= %d)%n", size, userdata.length);
-//            }
-//
-//            if (size <= 4) {
-//                System.out.println("WRN: missing user data");
-//                return new ArrayList<>();
-//            }
-//
-//            int totalSize = (int) Struct.unpack("I", Arrays.copyOfRange(userdata, 0, 4))[0];
-//            this.userPacketSize = totalSize / this.users;
-//
-//            if (this.userPacketSize != 28 && this.userPacketSize != 72) {
-//                if (this.verbose) {
-//                    System.out.printf("WRN packet size would be %d%n", this.userPacketSize);
-//                }
-//            }
-//
-//            userdata = Arrays.copyOfRange(userdata, 4, userdata.length);
-//
-//            if (this.userPacketSize == 28) {
-//                while (userdata.length >= 28) {
-//                    byte[] chunk = Arrays.copyOf(userdata, 28);
-//                    Object[] fields = Struct.unpack("<HB5s8sIxBhI", chunk);
-//                    int uid = (int) fields[0];
-//                    int privilege = (int) fields[1];
-//                    String password = new String(fields, this.encoding).split("\0")[2];
-//                    String name = new String(fields, this.encoding).split("\0")[3].trim();
-//                    int card = (int) fields[4];
-//                    String groupId = String.valueOf(fields[5]);
-//                    String userId = String.valueOf(fields[7]);
-//
-//                    if (uid > maxUid) maxUid = uid;
-//                    if (name.isEmpty()) name = "NN-" + userId;
-//
-//                    users.add(new User(uid, name, privilege, password, groupId, userId, card));
-//
-//                    if (this.verbose) {
-//                        System.out.printf("[6]user: %d %d %s %s %d %s %d %s%n",
-//                                uid, privilege, password, name, card, groupId, (int) fields[6], userId);
-//                    }
-//
-//                    userdata = Arrays.copyOfRange(userdata, 28, userdata.length);
-//                }
-//            } else {
-//                while (userdata.length >= 72) {
-//                    byte[] chunk = Arrays.copyOf(userdata, 72);
-//                    Object[] fields = Struct.unpack("<HB8s24sIx7sx24s", chunk);
-//                    int uid = (int) fields[0];
-//                    int privilege = (int) fields[1];
-//                    String password = new String(fields, this.encoding).split("\0")[2];
-//                    String name = new String( fields, this.encoding).split("\0")[3].trim();
-//                    String groupId = new String(fields, this.encoding).split("\0")[5].trim();
-//                    String userId = new String( fields, this.encoding).split("\0")[6];
-//                    int card = (int) fields[4];
-//
-//                    if (uid > maxUid) maxUid = uid;
-//                    if (name.isEmpty()) name = "NN-" + userId;
-//
-//                    users.add(new User(uid, name, privilege, password, groupId, userId, card));
-//                    userdata = Arrays.copyOfRange(userdata, 72, userdata.length);
-//                }
-//            }
-//
-//            maxUid++;
-//            this.nextUid = maxUid;
-//            this.nextUserId = String.valueOf(maxUid);
-//
-//            while (true) {
-//                boolean exists = users.stream().anyMatch(u -> u.userId.equals(this.nextUserId));
-//                if (exists) {
-//                    maxUid++;
-//                    this.nextUserId = String.valueOf(maxUid);
-//                } else {
-//                    break;
-//                }
-//            }
-//
-//            return users;
-//        }
+public List<User> getUsers() throws Exception {
+    this.readSizes();
+    if (this.users == 0) {
+        this.nextUid = 1;
+        this.nextUserId = "1";
+        return new ArrayList<>();
+    }
+
+    List<User> users = new ArrayList<>();
+    int maxUid = 0;
+    ReadBufferResult result = readWithBuffer(DeviceConstants.CMD_USERTEMP_RRQ, DeviceConstants.FCT_USER);
+    byte[] userdata = result.data;
+    int size = result.size;
+
+    if (this.verbose) {
+        System.out.printf("user size %d (= %d)%n", size, userdata.length);
+    }
+
+    if (size <= 4) {
+        System.out.println("WRN: missing user data");
+        return new ArrayList<>();
+    }
+
+    int totalSize = (int) Struct.unpack("I", Arrays.copyOfRange(userdata, 0, 4))[0];
+    this.userPacketSize = totalSize / this.users;
+
+    if (this.userPacketSize != 28 && this.userPacketSize != 72) {
+        if (this.verbose) {
+            System.out.printf("WRN packet size would be %d%n", this.userPacketSize);
+        }
+    }
+
+    userdata = Arrays.copyOfRange(userdata, 4, userdata.length);
+
+    if (this.userPacketSize == 28) {
+        while (userdata.length >= 28) {
+            byte[] chunk = Arrays.copyOf(userdata, 28);
+            Object[] fields = Struct.unpack("<HB5s8sIxBhI", chunk);
+            int uid = (int) fields[0];
+            int privilege = (int) fields[1];
+            String password = new String((byte[]) fields[2], this.encoding).split("\0")[0];
+            String name = new String((byte[]) fields[3], this.encoding).split("\0")[0].trim();
+            int card = (int) fields[4];
+            String groupId = String.valueOf(fields[5]);
+            String userId = String.valueOf(fields[7]);
+
+            if (uid > maxUid) maxUid = uid;
+            if (name.isEmpty()) name = "NN-" + userId;
+
+            users.add(new User(uid, name, privilege, password, groupId, userId, card));
+
+            if (this.verbose) {
+                System.out.printf("[6]user: %d %d %s %s %d %s %d %s%n",
+                        uid, privilege, password, name, card, groupId, (int) fields[6], userId);
+            }
+
+            userdata = Arrays.copyOfRange(userdata, 28, userdata.length);
+        }
+    } else {
+        while (userdata.length >= 72) {
+            byte[] chunk = Arrays.copyOf(userdata, 72);
+            Object[] fields = Struct.unpack("<HB8s24sIx7sx24s", chunk);
+            int uid = (int) fields[0];
+            int privilege = (int) fields[1];
+            String password = new String((byte[]) fields[2], this.encoding).split("\0")[0];
+            String name = new String((byte[]) fields[3], this.encoding).split("\0")[0].trim();
+            String groupId = new String((byte[]) fields[5], this.encoding).split("\0")[0].trim();
+            String userId = new String((byte[]) fields[6], this.encoding).split("\0")[0];
+            int card = (int) fields[4];
+
+            if (uid > maxUid) maxUid = uid;
+            if (name.isEmpty()) name = "NN-" + userId;
+
+            users.add(new User(uid, name, privilege, password, groupId, userId, card));
+            userdata = Arrays.copyOfRange(userdata, 72, userdata.length);
+        }
+    }
+
+    maxUid++;
+    this.nextUid = maxUid;
+    this.nextUserId = String.valueOf(maxUid);
+
+    while (true) {
+        boolean exists = users.stream().anyMatch(u -> u.userId.equals(this.nextUserId));
+        if (exists) {
+            maxUid++;
+            this.nextUserId = String.valueOf(maxUid);
+        } else {
+            break;
+        }
+    }
+
+    return users;
+}
 //
 //        public boolean cancelCapture() throws Exception {
 //            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_CANCELCAPTURE);
@@ -1561,13 +1581,13 @@ public class Base {
 //
 //
 //
-//        // Helper methods
-//        private byte[] recvBytes(int length) throws IOException {
-//            byte[] buffer = new byte[length];
-//            InputStream in = this.tcpSocket.getInputStream();
-//            int read = in.read(buffer);
-//            return Arrays.copyOf(buffer, read);
-//        }
+        // Helper methods
+        private byte[] recvBytes(int length) throws IOException {
+            byte[] buffer = new byte[length];
+            InputStream in = this.tcpSocket.getInputStream();
+            int read = in.read(buffer);
+            return Arrays.copyOf(buffer, read);
+        }
 //
 ////        private int extractResult(byte[] dataRecv) {
 ////            byte[] padded = pad(dataRecv, tcp ? 24 : 16);
@@ -1709,287 +1729,287 @@ public class Base {
 //            }
 //        }
 //
-//        public class TcpResult {
-//            public final byte[] payload;
-//            public final byte[] remainder;
-//
-//            public TcpResult(byte[] payload, byte[] remainder) {
-//                this.payload = payload;
-//                this.remainder = remainder;
-//            }
-//        }
-//
-//        private TcpResult receiveTcpData(byte[] dataRecv, int size) throws IOException {
-//            List<byte[]> dataChunks = new ArrayList<>();
-//            int tcpLength = testTcpTop(dataRecv);
-//
-//            if (verbose) System.out.printf("tcp_length %d, size %d%n", tcpLength, size);
-//            if (tcpLength <= 0) {
-//                if (verbose) System.out.println("Incorrect tcp packet");
-//                return new TcpResult(null, new byte[0]);
-//            }
-//
-//            if ((tcpLength - 8) < size) {
-//                if (verbose) System.out.println("tcp length too small... retrying");
-//
-//                TcpResult partial = receiveTcpData(dataRecv, tcpLength - 8);
-//                dataChunks.add(partial.payload);
-//                size -= partial.payload.length;
-//
-//                if (verbose) System.out.printf("new tcp DATA packet to fill missing %d%n", size);
-//                byte[] newRecv = concat(partial.remainder, recvBytes(size + 16));
-//
-//                if (verbose) System.out.printf("new tcp DATA starting with %d bytes%n", newRecv.length);
-//                TcpResult finalPart = receiveTcpData(newRecv, size);
-//                dataChunks.add(finalPart.payload);
-//
-//                if (verbose) System.out.printf("for missing %d received %d with extra %d%n",
-//                        size, finalPart.payload.length, finalPart.remainder.length);
-//
-//                return new TcpResult(concatAll(dataChunks), finalPart.remainder);
-//            }
-//
-//            int received = dataRecv.length;
-//            if (verbose) System.out.printf("received %d, size %d%n", received, size);
-//
-//            int response = (int) Struct.unpack("HHHH", dataRecv, 8)[0];
-//            if (received >= (size + 32)) {
-//                if (response == DeviceConstants.CMD_DATA) {
-//                    byte[] payload = Arrays.copyOfRange(dataRecv, 16, size + 16);
-//                    if (verbose) System.out.printf("resp complete len %d%n", payload.length);
-//                    byte[] remainder = Arrays.copyOfRange(dataRecv, size + 16, dataRecv.length);
-//                    return new TcpResult(payload, remainder);
-//                } else {
-//                    if (verbose) System.out.printf("incorrect response!!! %d%n", response);
-//                    return new TcpResult(null, new byte[0]);
-//                }
-//            } else {
-//                if (verbose) System.out.printf("try DATA incomplete (actual valid %d)%n", received - 16);
-//                dataChunks.add(Arrays.copyOfRange(dataRecv, 16, size + 16));
-//                size -= (received - 16);
-//
-//                byte[] brokenHeader = new byte[0];
-//                if (size < 0) {
-//                    brokenHeader = Arrays.copyOfRange(dataRecv, size, dataRecv.length);
-//                    if (verbose) System.out.println("broken " + BinUtils.byteArrayToHex(brokenHeader));
-//                }
-//
-//                if (size > 0) {
-//                    byte[] extra = receiveRawData(size);
-//                    dataChunks.add(extra);
-//                }
-//
-//                return new TcpResult(concatAll(dataChunks), brokenHeader);
-//            }
-//        }
-//
-//        private byte[] receiveRawData(int size) throws IOException {
-//            List<byte[]> chunks = new ArrayList<>();
-//            if (verbose) System.out.printf("expecting %d bytes raw data%n", size);
-//
-//            while (size > 0) {
-//                byte[] recv = recvBytes(size);
-//                int received = recv.length;
-//
-//                if (verbose) System.out.printf("partial recv %d%n", received);
-//                if (received < 100 && verbose) System.out.println("   recv " + BinUtils.byteArrayToHex(recv));
-//
-//                chunks.add(recv);
-//                size -= received;
-//
-//                if (verbose) System.out.printf("still need %d%n", size);
-//            }
-//
-//            return concatAll(chunks);
-//        }
-//
-//        private byte[] receiveChunk() throws Exception {
-//            if (this.response == DeviceConstants.CMD_DATA) {
-//                if (tcp) {
-//                    if (verbose) System.out.printf("_rc_DATA! is %d bytes, tcp length is %d%n", data.length, tcpLength);
-//                    if (data.length < (tcpLength - 8)) {
-//                        int need = (tcpLength - 8) - data.length;
-//                        if (verbose) System.out.printf("need more data: %d%n", need);
-//                        byte[] more = receiveRawData(need);
-//                        return concat(data, more);
-//                    } else {
-//                        if (verbose) System.out.println("Enough data");
-//                        return data;
-//                    }
-//                } else {
-//                    if (verbose) System.out.printf("_rc len is %d%n", data.length);
-//                    return data;
-//                }
-//            } else if (this.response == DeviceConstants.CMD_PREPARE_DATA) {
-//                List<byte[]> chunks = new ArrayList<>();
-//                int size = getDataSize();
-//
-//                if (verbose) System.out.printf("receive chunk: prepare data size is %d%n", size);
-//
-//                if (tcp) {
-//                    byte[] dataRecv = data.length >= (8 + size)
-//                            ? Arrays.copyOfRange(data, 8, data.length)
-//                            : concat(Arrays.copyOfRange(data, 8, data.length), recvBytes(size + 32));
-//
-//                    TcpResult result = receiveTcpData(dataRecv, size);
-//                    chunks.add(result.payload);
-//
-//                    byte[] ack = result.payload.length < 16
-//                            ? concat(result.remainder, recvBytes(16))
-//                            : result.remainder;
-//
-//                    if (ack.length < 16) {
-//                        if (verbose) System.out.printf("trying to complete broken ACK %d /16%n", ack.length);
-//                        ack = concat(ack, recvBytes(16 - ack.length));
-//                    }
-//
-//                    if (testTcpTop(ack) == 0) {
-//                        if (verbose) System.out.println("invalid chunk tcp ACK OK");
-//                        return null;
-//                    }
-//
-//                    int responseCode = (int) Struct.unpack("HHHH", ack, 8)[0];
-//                    if (responseCode == DeviceConstants.CMD_ACK_OK) {
-//                        if (verbose) System.out.println("chunk tcp ACK OK!");
-//                        return concatAll(chunks);
-//                    }
-//
-//                    if (verbose) {
-//                        System.out.println("bad response " + BinUtils.byteArrayToHex(ack));
-//                        System.out.println(BinUtils.byteArrayToHex(concatAll(chunks)));
-//                    }
-//
-//                    return null;
-//                }
-//
-//                while (true) {
-//                    byte[] packet = recvBytes(1032);
-//                    int responseCode = (int) Struct.unpack("<4H", packet, 0)[0];
-//
-//                    if (verbose) System.out.printf("# packet response is: %d%n", responseCode);
-//
-//                    if (responseCode == DeviceConstants.CMD_DATA) {
-//                        chunks.add(Arrays.copyOfRange(packet, 8, packet.length));
-//                        size -= 1024;
-//                    } else if (responseCode == DeviceConstants.CMD_ACK_OK) {
-//                        break;
-//                    } else {
-//                        if (verbose) System.out.println("broken!");
-//                        break;
-//                    }
-//
-//                    if (verbose) System.out.printf("still needs %d%n", size);
-//                }
-//
-//                return concatAll(chunks);
-//            } else {
-//                if (verbose) System.out.printf("invalid response %d%n", response);
-//                return null;
-//            }
-//        }
-//
+        public class TcpResult {
+            public final byte[] payload;
+            public final byte[] remainder;
+
+            public TcpResult(byte[] payload, byte[] remainder) {
+                this.payload = payload;
+                this.remainder = remainder;
+            }
+        }
+
+        private TcpResult receiveTcpData(byte[] dataRecv, int size) throws IOException {
+            List<byte[]> dataChunks = new ArrayList<>();
+            int tcpLength = testTcpTop(dataRecv);
+
+            if (verbose) System.out.printf("tcp_length %d, size %d%n", tcpLength, size);
+            if (tcpLength <= 0) {
+                if (verbose) System.out.println("Incorrect tcp packet");
+                return new TcpResult(null, new byte[0]);
+            }
+
+            if ((tcpLength - 8) < size) {
+                if (verbose) System.out.println("tcp length too small... retrying");
+
+                TcpResult partial = receiveTcpData(dataRecv, tcpLength - 8);
+                dataChunks.add(partial.payload);
+                size -= partial.payload.length;
+
+                if (verbose) System.out.printf("new tcp DATA packet to fill missing %d%n", size);
+                byte[] newRecv = concat(partial.remainder, recvBytes(size + 16));
+
+                if (verbose) System.out.printf("new tcp DATA starting with %d bytes%n", newRecv.length);
+                TcpResult finalPart = receiveTcpData(newRecv, size);
+                dataChunks.add(finalPart.payload);
+
+                if (verbose) System.out.printf("for missing %d received %d with extra %d%n",
+                        size, finalPart.payload.length, finalPart.remainder.length);
+
+                return new TcpResult(concatAll(dataChunks), finalPart.remainder);
+            }
+
+            int received = dataRecv.length;
+            if (verbose) System.out.printf("received %d, size %d%n", received, size);
+
+            int response = (int) Struct.unpack("HHHH", Arrays.copyOfRange(dataRecv, 8, 16))[0];
+            if (received >= (size + 32)) {
+                if (response == DeviceConstants.CMD_DATA) {
+                    byte[] payload = Arrays.copyOfRange(dataRecv, 16, size + 16);
+                    if (verbose) System.out.printf("resp complete len %d%n", payload.length);
+                    byte[] remainder = Arrays.copyOfRange(dataRecv, size + 16, dataRecv.length);
+                    return new TcpResult(payload, remainder);
+                } else {
+                    if (verbose) System.out.printf("incorrect response!!! %d%n", response);
+                    return new TcpResult(null, new byte[0]);
+                }
+            } else {
+                if (verbose) System.out.printf("try DATA incomplete (actual valid %d)%n", received - 16);
+                dataChunks.add(Arrays.copyOfRange(dataRecv, 16, size + 16));
+                size -= (received - 16);
+
+                byte[] brokenHeader = new byte[0];
+                if (size < 0) {
+                    brokenHeader = Arrays.copyOfRange(dataRecv, size, dataRecv.length);
+                    if (verbose) System.out.println("broken " + BinUtils.byteArrayToHex(brokenHeader));
+                }
+
+                if (size > 0) {
+                    byte[] extra = receiveRawData(size);
+                    dataChunks.add(extra);
+                }
+
+                return new TcpResult(concatAll(dataChunks), brokenHeader);
+            }
+        }
+
+        private byte[] receiveRawData(int size) throws IOException {
+            List<byte[]> chunks = new ArrayList<>();
+            if (verbose) System.out.printf("expecting %d bytes raw data%n", size);
+
+            while (size > 0) {
+                byte[] recv = recvBytes(size);
+                int received = recv.length;
+
+                if (verbose) System.out.printf("partial recv %d%n", received);
+                if (received < 100 && verbose) System.out.println("   recv " + BinUtils.byteArrayToHex(recv));
+
+                chunks.add(recv);
+                size -= received;
+
+                if (verbose) System.out.printf("still need %d%n", size);
+            }
+
+            return concatAll(chunks);
+        }
+
+        private byte[] receiveChunk() throws Exception {
+            if (this.response == DeviceConstants.CMD_DATA) {
+                if (tcp) {
+                    if (verbose) System.out.printf("_rc_DATA! is %d bytes, tcp length is %d%n", data.length, tcpLength);
+                    if (data.length < (tcpLength - 8)) {
+                        int need = (tcpLength - 8) - data.length;
+                        if (verbose) System.out.printf("need more data: %d%n", need);
+                        byte[] more = receiveRawData(need);
+                        return concat(data, more);
+                    } else {
+                        if (verbose) System.out.println("Enough data");
+                        return data;
+                    }
+                } else {
+                    if (verbose) System.out.printf("_rc len is %d%n", data.length);
+                    return data;
+                }
+            } else if (this.response == DeviceConstants.CMD_PREPARE_DATA) {
+                List<byte[]> chunks = new ArrayList<>();
+                int size = getDataSize();
+
+                if (verbose) System.out.printf("receive chunk: prepare data size is %d%n", size);
+
+                if (tcp) {
+                    byte[] dataRecv = data.length >= (8 + size)
+                            ? Arrays.copyOfRange(data, 8, data.length)
+                            : concat(Arrays.copyOfRange(data, 8, data.length), recvBytes(size + 32));
+
+                    TcpResult result = receiveTcpData(dataRecv, size);
+                    chunks.add(result.payload);
+
+                    byte[] ack = result.payload.length < 16
+                            ? concat(result.remainder, recvBytes(16))
+                            : result.remainder;
+
+                    if (ack.length < 16) {
+                        if (verbose) System.out.printf("trying to complete broken ACK %d /16%n", ack.length);
+                        ack = concat(ack, recvBytes(16 - ack.length));
+                    }
+
+                    if (testTcpTop(ack) == 0) {
+                        if (verbose) System.out.println("invalid chunk tcp ACK OK");
+                        return null;
+                    }
+
+                    int responseCode = (int) Struct.unpack("HHHH", Arrays.copyOfRange(ack, 8, 16))[0];
+                    if (responseCode == DeviceConstants.CMD_ACK_OK) {
+                        if (verbose) System.out.println("chunk tcp ACK OK!");
+                        return concatAll(chunks);
+                    }
+
+                    if (verbose) {
+                        System.out.println("bad response " + BinUtils.byteArrayToHex(ack));
+                        System.out.println(BinUtils.byteArrayToHex(concatAll(chunks)));
+                    }
+
+                    return null;
+                }
+
+                while (true) {
+                    byte[] packet = recvBytes(1032);
+                    int responseCode = (int) Struct.unpack("<4H", Arrays.copyOfRange(packet, 0, 8))[0];
+
+                    if (verbose) System.out.printf("# packet response is: %d%n", responseCode);
+
+                    if (responseCode == DeviceConstants.CMD_DATA) {
+                        chunks.add(Arrays.copyOfRange(packet, 8, packet.length));
+                        size -= 1024;
+                    } else if (responseCode == DeviceConstants.CMD_ACK_OK) {
+                        break;
+                    } else {
+                        if (verbose) System.out.println("broken!");
+                        break;
+                    }
+
+                    if (verbose) System.out.printf("still needs %d%n", size);
+                }
+
+                return concatAll(chunks);
+            } else {
+                if (verbose) System.out.printf("invalid response %d%n", response);
+                return null;
+            }
+        }
+
         private byte[] concat(byte[] a, byte[] b) {
             byte[] result = new byte[a.length + b.length];
             System.arraycopy(a, 0, result, 0, a.length);
             System.arraycopy(b, 0, result, a.length, b.length);
             return result;
         }
-//
-//        private byte[] concatAll(List<byte[]> chunks) {
-//            int total = chunks.stream().mapToInt(c -> c.length).sum();
-//            byte[] result = new byte[total];
-//            int pos = 0;
-//            for (byte[] chunk : chunks) {
-//                System.arraycopy(chunk, 0, result, pos, chunk.length);
-//                pos += chunk.length;
-//            }
-//            return result;
-//        }
-//
-//        private byte[] readChunk(int start, int size) throws Exception {
-//            for (int retries = 0; retries < 3; retries++) {
-//                int command = DeviceConstants._CMD_READ_BUFFER;
-//                byte[] commandString = Struct.pack("<ii", start, size);
-//                int responseSize = tcp ? size + 32 : 1024 + 8;
-//
-//                sendCommand(command, commandString, responseSize);
-//                byte[] data = receiveChunk();
-//
-//                if (data != null) {
-//                    return data;
-//                }
-//            }
-//            throw new ZKErrorResponse(String.format("Can't read chunk %d:[%d]", start, size));
-//        }
-//
-//        public class ReadBufferResult {
-//            public final byte[] data;
-//            public final int size;
-//
-//            public ReadBufferResult(byte[] data, int size) {
-//                this.data = data;
-//                this.size = size;
-//            }
-//        }
-//
-//        public ReadBufferResult readWithBuffer(int command) throws Exception {
-//            return readWithBuffer(command, 0, 0);
-//        }
-//
-//        public ReadBufferResult readWithBuffer(int command, int fct) throws Exception {
-//            return readWithBuffer(command, fct, 0);
-//        }
-//
-//        public ReadBufferResult readWithBuffer(int command, int fct, int ext) throws Exception {
-//            int MAX_CHUNK = tcp ? 0xFFc0 : 16 * 1024;
-//            byte[] commandString = Struct.pack("<bhii", 1, command, fct, ext);
-//            if (verbose) System.out.println("rwb cs: " + Arrays.toString(commandString));
-//
-//            int responseSize = 1024;
-//            int start = 0;
-//            List<byte[]> chunks = new ArrayList<>();
-//
-//            Map<String, Object> response = sendCommand(DeviceConstants._CMD_PREPARE_BUFFER, commandString, responseSize);
-//
-//            if (!(boolean) response.get("status")) throw new ZKErrorResponse("RWB Not supported");
-//
-//            if (((int)response.get("code")) == DeviceConstants.CMD_DATA) {
-//                if (tcp) {
-//                    if (verbose) System.out.printf("DATA! is %d bytes, tcp length is %d%n", data.length, tcpLength);
-//                    if (data.length < (tcpLength - 8)) {
-//                        int need = (tcpLength - 8) - data.length;
-//                        if (verbose) System.out.printf("need more data: %d%n", need);
-//                        byte[] more = receiveRawData(need);
-//                        return new ReadBufferResult(concat(data, more), data.length + more.length);
-//                    } else {
-//                        if (verbose) System.out.println("Enough data");
-//                        return new ReadBufferResult(data, data.length);
-//                    }
-//                } else {
-//                    return new ReadBufferResult(data, data.length);
-//                }
-//            }
-//
-//            int size = (int) Struct.unpack("I", data, 1)[0];
-//            if (verbose) System.out.printf("size will be %d%n", size);
-//
-//            int remain = size % MAX_CHUNK;
-//            int packets = (size - remain) / MAX_CHUNK;
-//            if (verbose) System.out.printf("rwb: #%d packets of max %d bytes, and extra %d bytes remain%n", packets, MAX_CHUNK, remain);
-//
-//            for (int i = 0; i < packets; i++) {
-//                chunks.add(readChunk(start, MAX_CHUNK));
-//                start += MAX_CHUNK;
-//            }
-//            if (remain > 0) {
-//                chunks.add(readChunk(start, remain));
-//                start += remain;
-//            }
-//
-//            freeData();
-//            if (verbose) System.out.printf("_read w/chunk %d bytes%n", start);
-//            return new ReadBufferResult(concatAll(chunks), start);
-//        }
+
+        private byte[] concatAll(List<byte[]> chunks) {
+            int total = chunks.stream().mapToInt(c -> c.length).sum();
+            byte[] result = new byte[total];
+            int pos = 0;
+            for (byte[] chunk : chunks) {
+                System.arraycopy(chunk, 0, result, pos, chunk.length);
+                pos += chunk.length;
+            }
+            return result;
+        }
+
+        private byte[] readChunk(int start, int size) throws Exception {
+            for (int retries = 0; retries < 3; retries++) {
+                int command = DeviceConstants._CMD_READ_BUFFER;
+                byte[] commandString = Struct.pack("<ii", start, size);
+                int responseSize = tcp ? size + 32 : 1024 + 8;
+
+                sendCommand(command, commandString, responseSize);
+                byte[] data = receiveChunk();
+
+                if (data != null) {
+                    return data;
+                }
+            }
+            throw new ZKErrorResponse(String.format("Can't read chunk %d:[%d]", start, size));
+        }
+
+        public class ReadBufferResult {
+            public final byte[] data;
+            public final int size;
+
+            public ReadBufferResult(byte[] data, int size) {
+                this.data = data;
+                this.size = size;
+            }
+        }
+
+        public ReadBufferResult readWithBuffer(int command) throws Exception {
+            return readWithBuffer(command, 0, 0);
+        }
+
+        public ReadBufferResult readWithBuffer(int command, int fct) throws Exception {
+            return readWithBuffer(command, fct, 0);
+        }
+
+        public ReadBufferResult readWithBuffer(int command, int fct, int ext) throws Exception {
+            int MAX_CHUNK = tcp ? 0xFFc0 : 16 * 1024;
+            byte[] commandString = Struct.pack("<bhii", 1, command, fct, ext);
+            if (verbose) System.out.println("rwb cs: " + Arrays.toString(commandString));
+
+            int responseSize = 1024;
+            int start = 0;
+            List<byte[]> chunks = new ArrayList<>();
+
+            Map<String, Object> response = sendCommand(DeviceConstants._CMD_PREPARE_BUFFER, commandString, responseSize);
+
+            if (!(boolean) response.get("status")) throw new ZKErrorResponse("RWB Not supported");
+
+            if (((int)response.get("code")) == DeviceConstants.CMD_DATA) {
+                if (tcp) {
+                    if (verbose) System.out.printf("DATA! is %d bytes, tcp length is %d%n", data.length, tcpLength);
+                    if (data.length < (tcpLength - 8)) {
+                        int need = (tcpLength - 8) - data.length;
+                        if (verbose) System.out.printf("need more data: %d%n", need);
+                        byte[] more = receiveRawData(need);
+                        return new ReadBufferResult(concat(data, more), data.length + more.length);
+                    } else {
+                        if (verbose) System.out.println("Enough data");
+                        return new ReadBufferResult(data, data.length);
+                    }
+                } else {
+                    return new ReadBufferResult(data, data.length);
+                }
+            }
+
+            int size = (int) Struct.unpack("I", Arrays.copyOfRange(data, 1, 5))[0];
+            if (verbose) System.out.printf("size will be %d%n", size);
+
+            int remain = size % MAX_CHUNK;
+            int packets = (size - remain) / MAX_CHUNK;
+            if (verbose) System.out.printf("rwb: #%d packets of max %d bytes, and extra %d bytes remain%n", packets, MAX_CHUNK, remain);
+
+            for (int i = 0; i < packets; i++) {
+                chunks.add(readChunk(start, MAX_CHUNK));
+                start += MAX_CHUNK;
+            }
+            if (remain > 0) {
+                chunks.add(readChunk(start, remain));
+                start += remain;
+            }
+
+            freeData();
+            if (verbose) System.out.printf("_read w/chunk %d bytes%n", start);
+            return new ReadBufferResult(concatAll(chunks), start);
+        }
 //
 //        public List<Attendance> getAttendance() throws Exception {
 //            readSizes();
