@@ -10,8 +10,8 @@ import java.util.Map;
 public class Main {
     public static void main(String[] args) {
         Base base = new Base();
-        Base.ZK zk = base.new ZK("203.82.206.78", 43107, 102159);
-        //Base.ZK zk = base.new ZK("192.168.34.11", 43107, 102159);
+        //Base.ZK zk = base.new ZK("203.82.206.78", 43107, 102159);
+        Base.ZK zk = base.new ZK("192.168.34.11", 43107, 102159);
         try {
             System.out.println("Connecting to device...");
             zk.connect();
@@ -50,7 +50,7 @@ public class Main {
             System.out.println("Getting Users: ------------");
             List<User> userList = zk.getUsers();
             if (userList.isEmpty()){
-                System.out.println(" --- No user found!");
+                System.out.println("---- No user found!----");
             }else {
                 for (User user : userList){
                     if (user != null){

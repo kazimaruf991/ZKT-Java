@@ -340,14 +340,11 @@ public class Base {
         private int testTcpTop(byte[] packet) {
             if (packet.length <= 8) return 0;
 
-            ByteBuffer buf = ByteBuffer.wrap(packet, 0, 8).order(ByteOrder.LITTLE_ENDIAN);
-            int header1 = buf.getShort() & 0xFFFF;
-            int header2 = buf.getShort() & 0xFFFF;
-            int length = buf.getInt();
+            Object[] unpackedPacket = Struct.unpack("<HHI", Arrays.copyOfRange(packet, 0, 8));
 
-            if (header1 == DeviceConstants.MACHINE_PREPARE_DATA_1 &&
-                    header2 == DeviceConstants.MACHINE_PREPARE_DATA_2) {
-                return length;
+            if (((int)unpackedPacket[0]) == DeviceConstants.MACHINE_PREPARE_DATA_1 &&
+                    ((int)unpackedPacket[1]) == DeviceConstants.MACHINE_PREPARE_DATA_2) {
+                return (int) unpackedPacket[2];
             }
             return 0;
         }
