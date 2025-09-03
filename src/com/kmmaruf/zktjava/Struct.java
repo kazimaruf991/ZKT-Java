@@ -15,21 +15,29 @@ public class Struct {
         for (FmtToken tok : pf.tokens) {
             for (int i = 0; i < tok.count; i++) {
                 switch (tok.type) {
-                    case 'B':
-                        buf.put((byte) ((int) values[vi++]));
+                    case 'B': // unsigned byte
+                        buf.put((byte) ((int) values[vi++])); // mask not needed here, but assumed input is 0–255
                         break;
-                    case 'H':
-                        buf.putShort((short) ((int) values[vi++]));
+                    case 'b': // signed byte
+                        buf.put(((Number) values[vi++]).byteValue());
                         break;
-                    case 'I':
-                        buf.putInt((int) values[vi++]);
+                    case 'H': // unsigned short
+                        buf.putShort((short) ((int) values[vi++])); // assumes input is 0–65535
                         break;
+                    case 'h': // signed short
+                        buf.putShort(((Number) values[vi++]).shortValue());
+                        break;
+                    case 'I': // unsigned int
+                        buf.putInt((int) values[vi++]); // assumes input is 0–4294967295
+                        break;
+                    case 'i': // signed int
+                        buf.putInt(((Number) values[vi++]).intValue()); break;
                     case 's': {
                         byte[] src = (byte[]) values[vi++];
                         byte[] out = new byte[tok.count];
                         System.arraycopy(src, 0, out, 0, Math.min(src.length, tok.count));
                         buf.put(out);
-                        i = tok.count - 1; // already consumed full count
+                        i = tok.count - 1;
                         break;
                     }
                     case 'x':
@@ -39,8 +47,7 @@ public class Struct {
                         throw new IllegalArgumentException("Unsupported type: " + tok.type);
                 }
             }
-        }
-        return buf.array();
+        } return buf.array();
     }
 
     public static Object[] unpack(String format, byte[] data) {
@@ -54,8 +61,14 @@ public class Struct {
                     case 'B':
                         out.add(buf.get() & 0xFF); // unsigned byte
                         break;
+                    case 'b':
+                        out.add(buf.get()); // signed byte
+                        break;
                     case 'H':
                         out.add(buf.getShort() & 0xFFFF); // unsigned short
+                        break;
+                    case 'h':
+                        out.add(buf.getShort()); // unsigned short
                         break;
                     case 'I':
                         out.add(buf.getInt()); // unsigned int (Java int range)
@@ -87,10 +100,18 @@ public class Struct {
 
         int pos = 0;
         char first = format.charAt(0);
-        if (first == '<') { pf.byteOrder = ByteOrder.LITTLE_ENDIAN; pos++; }
-        else if (first == '>') { pf.byteOrder = ByteOrder.BIG_ENDIAN; pos++; }
-        else if (first == '=') { pf.byteOrder = ByteOrder.nativeOrder(); pos++; }
-        else { pf.byteOrder = ByteOrder.LITTLE_ENDIAN; }
+        if (first == '<') {
+            pf.byteOrder = ByteOrder.LITTLE_ENDIAN;
+            pos++;
+        } else if (first == '>') {
+            pf.byteOrder = ByteOrder.BIG_ENDIAN;
+            pos++;
+        } else if (first == '=') {
+            pf.byteOrder = ByteOrder.nativeOrder();
+            pos++;
+        } else {
+            pf.byteOrder = ByteOrder.LITTLE_ENDIAN;
+        }
 
         while (pos < format.length()) {
             int count = 0;
@@ -105,12 +126,30 @@ public class Struct {
 
             pf.tokens.add(new FmtToken(type, count));
             switch (type) {
-                case 'B': pf.size += count; break;
-                case 'H': pf.size += 2 * count; break;
-                case 'I': pf.size += 4 * count; break;
-                case 'i': pf.size += 4 * count; break;
-                case 's': pf.size += count; break;
-                case 'x': pf.size += count; break;
+                case 'B':
+                    pf.size += count;
+                    break;
+                case 'b':
+                    pf.size += count;
+                    break;
+                case 'H':
+                    pf.size += 2 * count;
+                    break;
+                case 'h':
+                    pf.size += 2 * count;
+                    break;
+                case 'I':
+                    pf.size += 4 * count;
+                    break;
+                case 'i':
+                    pf.size += 4 * count;
+                    break;
+                case 's':
+                    pf.size += count;
+                    break;
+                case 'x':
+                    pf.size += count;
+                    break;
                 default:
                     throw new IllegalArgumentException("Unknown format char: " + type);
             }
@@ -127,7 +166,11 @@ public class Struct {
     private static class FmtToken {
         char type;
         int count;
-        FmtToken(char t, int c) { type = t; count = c; }
+
+        FmtToken(char t, int c) {
+            type = t;
+            count = c;
+        }
     }
 
     // Quick test
@@ -138,13 +181,7 @@ public class Struct {
         Object[] unpacked = Struct.unpack("<4H", packed);
         for (Object o : unpacked) System.out.println(o);
 
-        byte[] packed2 = Struct.pack("HB8s24s4sx7sx24s",
-                1, 5,
-                "password".getBytes("UTF-8"),
-                "namePad____________________".getBytes("UTF-8"),
-                "card".getBytes("UTF-8"),
-                "groupId".getBytes("UTF-8"),
-                "userId".getBytes("UTF-8"));
+        byte[] packed2 = Struct.pack("HB8s24s4sx7sx24s", 1, 5, "password".getBytes("UTF-8"), "namePad____________________".getBytes("UTF-8"), "card".getBytes("UTF-8"), "groupId".getBytes("UTF-8"), "userId".getBytes("UTF-8"));
         System.out.println(bytesToHex(packed2));
 
         Object[] unpacked2 = Struct.unpack("HB8s24s4sx7sx24s", packed2);

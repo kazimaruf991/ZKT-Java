@@ -1,6 +1,8 @@
 import com.kmmaruf.zktjava.Base;
+import com.kmmaruf.zktjava.User;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 
 //TIP To <b>Run</b> code, press <shortcut actionId="Run"/> or
@@ -45,7 +47,18 @@ public class Main {
             zk.readSizes();
             System.out.println (zk);
             System.out.println (" ");
-
+            System.out.println("Getting Users: ------------");
+            List<User> userList = zk.getUsers();
+            if (userList.isEmpty()){
+                System.out.println(" --- No user found!");
+            }else {
+                for (User user : userList){
+                    if (user != null){
+                        System.out.println(user);
+                    }
+                }
+            }
+            System.out.println("---------------------------");
 
 
             System.out.println("Enabling device....");
