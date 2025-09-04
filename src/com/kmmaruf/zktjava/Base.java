@@ -246,7 +246,7 @@ public class Base {
             this.helper = new ZKHelper(ip, port);
             this.forceUdp = forceUdp;
             this.ommitPing = ommitPing;
-            this.verbose = verbose;
+            this.verbose = true;
             this.encoding = encoding;
             this.tcp = !forceUdp;
         }
@@ -755,7 +755,7 @@ public class Base {
             /*
             get network params
              */
-            String ip = this.address.getHostName();
+            String ip = "";
             String mask = "";
             String gate = "";
 
