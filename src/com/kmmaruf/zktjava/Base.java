@@ -13,9 +13,6 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.time.LocalDateTime;
 import java.util.*;
-import java.net.DatagramSocket;
-import java.net.InetSocketAddress;
-import java.net.SocketException;
 
 public class Base {
 
@@ -170,6 +167,8 @@ public class Base {
         private final InetSocketAddress address;
         private DatagramSocket udpSocket;
         private Socket tcpSocket;
+        private String ip;
+        private int port;
         private final int timeout;
         private final int password; // passint
         private int sessionId = 0;
@@ -223,6 +222,8 @@ public class Base {
                   boolean forceUdp, boolean ommitPing, boolean verbose, String encoding) {
 
             User.ENCODING = encoding;
+            this.ip = ip;
+            this.port = port;
             this.address = new InetSocketAddress(ip, port);
             this.timeout = timeout;
             this.password = password;
@@ -246,7 +247,7 @@ public class Base {
             this.helper = new ZKHelper(ip, port);
             this.forceUdp = forceUdp;
             this.ommitPing = ommitPing;
-            this.verbose = true;
+            this.verbose = verbose;
             this.encoding = encoding;
             this.tcp = !forceUdp;
         }
@@ -369,8 +370,24 @@ public class Base {
                     byte[] top = createTcpTop(buf);
                     this.tcpSocket.getOutputStream().write(top);
 
-                    byte[] tcpDataRecv = new byte[responseSize + 8];
-                    this.tcpSocket.getInputStream().read(tcpDataRecv);
+                     //byte[] tcpDataRecv = new byte[responseSize + 8];
+                     //this.tcpSocket.getInputStream().read(tcpDataRecv);
+
+                    InputStream inputStream = this.tcpSocket.getInputStream();
+                    int maxBytes = responseSize + 8;
+
+                    byte[] tcpDataRecv = new byte[maxBytes];
+                    int bytesRead = inputStream.read(tcpDataRecv); // blocks until at least one byte is available
+
+                    if (bytesRead == -1) {
+                        // End of stream
+                        tcpDataRecv = new byte[0];
+                    } else if (bytesRead < maxBytes) {
+                        // Trim to actual bytes received
+                        tcpDataRecv = Arrays.copyOf(tcpDataRecv, bytesRead);
+                    }
+
+
 
                     tcpLength = testTcpTop(tcpDataRecv);
                     if (tcpLength == 0) {
@@ -792,7 +809,7 @@ public class Base {
         }
 
         public boolean freeData() throws Exception {
-            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_FREE_DATA, new byte[0], 0);
+            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_FREE_DATA);
             if ((boolean) cmdResponse.get("status")) {
                 return true;
             } else {
@@ -855,8 +872,8 @@ public class Base {
         public String toString() {
             return String.format("ZK %s://%s:%d users[%d]:%d/%d fingers:%d/%d, records:%d/%d faces:%d/%d",
                     this.tcp ? "tcp" : "udp",
-                    this.address.getHostName(),
-                    this.address.getPort(),
+                    this.ip,
+                    this.port,
                     this.userPacketSize,
                     this.users, this.usersCap,
                     this.fingers, this.fingersCap,
@@ -1355,6 +1372,25 @@ public class Base {
 //            return templates;
 //        }
 //
+
+public List<byte[]> splitByDelimiter(byte[] data, byte delimiter) {
+    List<byte[]> parts = new ArrayList<>();
+    int start = 0;
+
+    for (int i = 0; i < data.length; i++) {
+        if (data[i] == delimiter) {
+            parts.add(Arrays.copyOfRange(data, start, i));
+            start = i + 1;
+        }
+    }
+
+    if (start < data.length) {
+        parts.add(Arrays.copyOfRange(data, start, data.length));
+    }
+
+    return parts;
+}
+
 public List<User> getUsers() throws Exception {
     this.readSizes();
     if (this.users == 0) {
@@ -1419,10 +1455,10 @@ public List<User> getUsers() throws Exception {
             Object[] fields = Struct.unpack("<HB8s24sIx7sx24s", chunk);
             int uid = (int) fields[0];
             int privilege = (int) fields[1];
-            String password = new String((byte[]) fields[2], this.encoding).split("\0")[0];
-            String name = new String((byte[]) fields[3], this.encoding).split("\0")[0].trim();
-            String groupId = new String((byte[]) fields[5], this.encoding).split("\0")[0].trim();
-            String userId = new String((byte[]) fields[6], this.encoding).split("\0")[0];
+            String password = new String(splitByDelimiter(((byte[]) fields[2]), (byte) 0x00).get(0), this.encoding);
+            String name = new String(splitByDelimiter(((byte[]) fields[3]), (byte) 0x00).get(0), this.encoding).strip();
+            String groupId = new String(splitByDelimiter(((byte[]) fields[5]), (byte) 0x00).get(0), this.encoding).strip();
+            String userId = new String(splitByDelimiter(((byte[]) fields[6]), (byte) 0x00).get(0), this.encoding);
             int card = (int) fields[4];
 
             if (uid > maxUid) maxUid = uid;
@@ -1924,15 +1960,17 @@ public List<User> getUsers() throws Exception {
         }
 
         private byte[] readChunk(int start, int size) throws Exception {
-            for (int retries = 0; retries < 3; retries++) {
+            for (int retries = 0; retries < 5; retries++) {
                 int command = DeviceConstants._CMD_READ_BUFFER;
                 byte[] commandString = Struct.pack("<ii", start, size);
                 int responseSize = tcp ? size + 32 : 1024 + 8;
 
                 sendCommand(command, commandString, responseSize);
+
+                
                 byte[] data = receiveChunk();
 
-                if (data != null) {
+                if (data != null && data.length == size) {
                     return data;
                 }
             }

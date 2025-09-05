@@ -124,7 +124,7 @@ public class User {
 
     @Override
     public String toString() {
-        return String.format("<User>: [uid:%d, name:%s user_id:%s]", uid, name, userId);
+        return String.format("<User>: [UID: %d,     Name: %s     User Id: %s      Card: %s]", uid, name, userId, card);
     }
 
     @Override
