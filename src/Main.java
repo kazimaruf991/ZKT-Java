@@ -10,8 +10,8 @@ import java.util.Map;
 public class Main {
     public static void main(String[] args) {
         Base base = new Base();
-        //Base.ZK zk = base.new ZK("203.82.206.78", 43107, 102159);
-        Base.ZK zk = base.new ZK("192.168.34.11", 43107, 102159);
+        Base.ZK zk = base.new ZK("203.82.206.78", 43107, 102159);
+        //Base.ZK zk = base.new ZK("192.168.34.11", 43107, 102159);
         try {
             System.out.println("Connecting to device...");
             zk.connect();
@@ -48,7 +48,10 @@ public class Main {
             System.out.println (zk);
             System.out.println (" ");
             System.out.println("Getting Users: ------------");
+            double startTime = System.currentTimeMillis() / 1000.0;
             List<User> userList = zk.getUsers();
+            double endTime = System.currentTimeMillis() / 1000.0;
+            System.out.printf("    took %.3f[s]%n", endTime - startTime);
             if (userList.isEmpty()){
                 System.out.println("---- No user found!----");
             }else {

@@ -292,17 +292,17 @@ public class Base {
 
         // Create packet header
         private byte[] createHeader(int command, byte[] commandString, int sessionId, int replyId) {
-             byte[] buf = concat(Struct.pack("<4H", command, 0, sessionId, replyId), commandString);
-             Object[] unpacked = Struct.unpack((8 + commandString.length) + "B", buf);
-             Object checksum = Struct.unpack("H", createChecksum(unpacked))[0];
-             replyId += 1;
-             if (replyId >= DeviceConstants.USHRT_MAX){
-                 replyId -= DeviceConstants.USHRT_MAX;
-             }
+            byte[] buf = concat(Struct.pack("<4H", command, 0, sessionId, replyId), commandString);
+            Object[] unpacked = Struct.unpack((8 + commandString.length) + "B", buf);
+            Object checksum = Struct.unpack("H", createChecksum(unpacked))[0];
+            replyId += 1;
+            if (replyId >= DeviceConstants.USHRT_MAX){
+                replyId -= DeviceConstants.USHRT_MAX;
+            }
 
-             buf = Struct.pack("<4H", command, checksum, sessionId, replyId);
+            buf = Struct.pack("<4H", command, checksum, sessionId, replyId);
 
-             return concat(buf, commandString);
+            return concat(buf, commandString);
         }
 
 
@@ -370,8 +370,8 @@ public class Base {
                     byte[] top = createTcpTop(buf);
                     this.tcpSocket.getOutputStream().write(top);
 
-                     //byte[] tcpDataRecv = new byte[responseSize + 8];
-                     //this.tcpSocket.getInputStream().read(tcpDataRecv);
+                    //byte[] tcpDataRecv = new byte[responseSize + 8];
+                    //this.tcpSocket.getInputStream().read(tcpDataRecv);
 
                     InputStream inputStream = this.tcpSocket.getInputStream();
                     int maxBytes = responseSize + 8;
@@ -428,31 +428,33 @@ public class Base {
             result.put("status", false);
             return result;
         }
-//
-//        // Sends ACK_OK event
-//        private void ackOk() throws Exception{
-//            byte[] buf = createHeader(DeviceConstants.CMD_ACK_OK, new byte[0], this.sessionId, DeviceConstants.USHRT_MAX - 1);
-//            try {
-//                if (this.tcp) {
-//                    byte[] top = createTcpTop(buf);
-//                    this.tcpSocket.getOutputStream().write(top);
-//                } else {
-//                    this.udpSocket.send(new DatagramPacket(buf, buf.length, this.address));
-//                }
-//            } catch (IOException e) {
-//                throw new ZKNetworkError(e.getMessage());
-//            }
-//        }
-//
+
+        // Sends ACK_OK event
+        private void ackOk() throws Exception{
+            byte[] buf = createHeader(DeviceConstants.CMD_ACK_OK, new byte[0], this.sessionId, DeviceConstants.USHRT_MAX - 1);
+            try {
+                if (this.tcp) {
+                    byte[] top = createTcpTop(buf);
+                    this.tcpSocket.getOutputStream().write(top);
+                } else {
+                    this.udpSocket.send(new DatagramPacket(buf, buf.length, this.address));
+                }
+            } catch (IOException e) {
+                throw new ZKNetworkError(e.getMessage());
+            }
+        }
+
         // Gets data size from CMD_PREPARE_DATA response
         private int getDataSize() {
             if (this.response == DeviceConstants.CMD_PREPARE_DATA) {
-                ByteBuffer buf = ByteBuffer.wrap(this.data, 0, 4).order(ByteOrder.LITTLE_ENDIAN);
-                return buf.getInt();
+                int size = (int) Struct.unpack("I", Arrays.copyOfRange(this.data, 0, 4))[0];
+                //ByteBuffer buf = ByteBuffer.wrap(this.data, 0, 4).order(ByteOrder.LITTLE_ENDIAN);
+                //return buf.getInt();
+                return size;
             }
             return 0;
         }
-//
+        //
 //        // Reverses hex string
 //        private String reverseHex(String hex) {
 //            StringBuilder data = new StringBuilder();
@@ -523,18 +525,18 @@ public class Base {
 //            return LocalDateTime.of(year, month, day, hour, minute, second);
 //        }
 //
-//        private int encodeTime(LocalDateTime t) {
-//            int year = t.getYear() % 100;
-//            int month = t.getMonthValue();
-//            int day = t.getDayOfMonth();
-//            int hour = t.getHour();
-//            int minute = t.getMinute();
-//            int second = t.getSecond();
-//
-//            return (((year * 12 * 31) + ((month - 1) * 31) + day - 1) * (24 * 60 * 60)) +
-//                    ((hour * 60 + minute) * 60) + second;
-//        }
-//
+        private int encodeTime(LocalDateTime t) {
+            int year = t.getYear() % 100;
+            int month = t.getMonthValue();
+            int day = t.getDayOfMonth();
+            int hour = t.getHour();
+            int minute = t.getMinute();
+            int second = t.getSecond();
+
+            return (((year * 12 * 31) + ((month - 1) * 31) + day - 1) * (24 * 60 * 60)) +
+                    ((hour * 60 + minute) * 60) + second;
+        }
+
         public ZK connect() throws Exception {
             this.endLiveCapture = false;
 
@@ -851,23 +853,25 @@ public class Base {
                 throw new ZKErrorResponse("can't read sizes");
             }
         }
-//
-//        public boolean unlock(int timeInSeconds) throws Exception {
-//            int delay = timeInSeconds * 10;
-//            byte[] commandString = BinUtils.packIntLE(delay);
-//            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_UNLOCK, commandString);
-//            if ((boolean) cmdResponse.get("status")) {
-//                return true;
-//            } else {
-//                throw new ZKErrorResponse("Can't open door");
-//            }
-//        }
-//
-//        public boolean getLockState() throws Exception{
-//            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_DOORSTATE_RRQ);
-//            return (boolean) cmdResponse.get("status");
-//        }
-//
+
+        public boolean unlock(int timeInSeconds) throws Exception {
+            if (timeInSeconds == 0){
+                timeInSeconds = 3;
+            }
+            byte[] commandString = Struct.pack("I", timeInSeconds * 10);
+            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_UNLOCK, commandString);
+            if ((boolean) cmdResponse.get("status")) {
+                return true;
+            } else {
+                throw new ZKErrorResponse("Can't open door");
+            }
+        }
+
+        public boolean getLockState() throws Exception{
+            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_DOORSTATE_RRQ);
+            return (boolean) cmdResponse.get("status");
+        }
+
         @Override
         public String toString() {
             return String.format("ZK %s://%s:%d users[%d]:%d/%d fingers:%d/%d, records:%d/%d faces:%d/%d",
@@ -881,42 +885,42 @@ public class Base {
                     this.faces, this.facesCap
             );
         }
-//
-//        public boolean restart() throws Exception {
-//            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_RESTART);
-//            if ((boolean) cmdResponse.get("status")) {
-//                this.isConnect = false;
-//                this.nextUid = 1;
-//                return true;
-//            } else {
-//                throw new ZKErrorResponse("Can't restart device");
-//            }
-//        }
-//
-//        public boolean writeLcd(int lineNumber, String text) throws Exception {
-//            ByteBuffer buf = ByteBuffer.allocate(3 + text.length());
-//            buf.order(ByteOrder.LITTLE_ENDIAN);
-//            buf.putShort((short) lineNumber);
-//            buf.put((byte) 0);
-//            buf.put((byte) ' ');
-//            buf.put(text.getBytes(this.encoding));
-//            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_WRITE_LCD, buf.array());
-//            if ((boolean) cmdResponse.get("status")) {
-//                return true;
-//            } else {
-//                throw new ZKErrorResponse("Can't write LCD");
-//            }
-//        }
-//
-//        public boolean clearLcd() throws Exception {
-//            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_CLEAR_LCD);
-//            if ((boolean) cmdResponse.get("status")) {
-//                return true;
-//            } else {
-//                throw new ZKErrorResponse("Can't clear LCD");
-//            }
-//        }
-//
+
+        public boolean restart() throws Exception {
+            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_RESTART);
+            if ((boolean) cmdResponse.get("status")) {
+                this.isConnect = false;
+                this.nextUid = 1;
+                return true;
+            } else {
+                throw new ZKErrorResponse("Can't restart device");
+            }
+        }
+
+        public boolean writeLcd(int lineNumber, String text) throws Exception {
+            List<byte[]> chunks = new ArrayList<>();
+            chunks.add(Struct.pack("<hb", lineNumber, 0));
+            chunks.add(" ".getBytes(this.encoding));
+            chunks.add(text.getBytes(this.encoding));
+            byte[] commandString = concatAll(chunks);
+
+            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_WRITE_LCD, commandString);
+            if ((boolean) cmdResponse.get("status")) {
+                return true;
+            } else {
+                throw new ZKErrorResponse("Can't write LCD");
+            }
+        }
+
+        public boolean clearLcd() throws Exception {
+            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_CLEAR_LCD);
+            if ((boolean) cmdResponse.get("status")) {
+                return true;
+            } else {
+                throw new ZKErrorResponse("Can't clear LCD");
+            }
+        }
+
         public LocalDateTime getTime() throws Exception {
             Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_GET_TIME, new byte[0], 1032);
             if ((boolean) cmdResponse.get("status")) {
@@ -926,379 +930,234 @@ public class Base {
                 throw new ZKErrorResponse("Can't get time");
             }
         }
-//
-//        public boolean setTime(LocalDateTime timestamp) throws Exception {
-//            int encoded = encodeTime(timestamp);
-//            byte[] commandString = BinUtils.packIntLE(encoded);
-//            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_SET_TIME, commandString);
-//            if ((boolean) cmdResponse.get("status")) {
-//                return true;
-//            } else {
-//                throw new ZKErrorResponse("Can't set time");
-//            }
-//        }
-//
-//        public boolean powerOff() throws Exception {
-//            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_POWEROFF, new byte[0], 1032);
-//            if ((boolean) cmdResponse.get("status")) {
-//                this.isConnect = false;
-//                this.nextUid = 1;
-//                return true;
-//            } else {
-//                throw new ZKErrorResponse("Can't power off");
-//            }
-//        }
-//
-//        public boolean refreshData() throws Exception {
-//            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_REFRESHDATA);
-//            if ((boolean) cmdResponse.get("status")) {
-//                return true;
-//            } else {
-//                throw new ZKErrorResponse("Can't refresh data");
-//            }
-//        }
-//
-//        public void setUser(Integer uid, String name, int privilege, String password, String groupId, String userId, int card) throws Exception {
-//            int userPacketSize = this.userPacketSize;
-//            if (uid == null) {
-//                uid = this.nextUid;
-//                if (userId == null || userId.isEmpty()) {
-//                    userId = this.nextUserId;
-//                }
-//            }
-//            if (userId == null || userId.isEmpty()) {
-//                userId = String.valueOf(uid);
-//            }
-//            if (privilege != DeviceConstants.USER_DEFAULT && privilege != DeviceConstants.USER_ADMIN) {
-//                privilege = DeviceConstants.USER_DEFAULT;
-//            }
-//
-//            byte[] commandString;
-//            if (userPacketSize == 28) {
-//                int group = (groupId == null || groupId.isEmpty()) ? 0 : Integer.parseInt(groupId);
-//                try {
-//                    commandString = Struct.pack("HB5s8sIxBHI", uid, privilege,
-//                            password.getBytes(this.encoding),
-//                            name.getBytes(this.encoding),
-//                            card, group, 0, Integer.parseInt(userId));
-//                } catch (Exception e) {
-//                    if (this.verbose) {
-//                        System.out.println("Error packing user: " + e.getMessage());
-//                    }
-//                    throw new ZKErrorResponse("Can't pack user");
-//                }
-//            } else {
-//                byte[] namePad = Arrays.copyOf(name.getBytes(this.encoding), 24);
-//                byte[] cardStr = Struct.pack("<I", card);
-//                commandString = Struct.pack("HB8s24s4sx7sx24s", uid, privilege,
-//                        password.getBytes(this.encoding),
-//                        namePad, cardStr,
-//                        groupId.getBytes(this.encoding),
-//                        userId.getBytes(this.encoding));
-//            }
-//
-//            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_USER_WRQ, commandString, 1024);
-//            if (this.verbose) {
-//                System.out.println("Response: " + cmdResponse);
-//            }
-//            if (!(boolean) cmdResponse.get("status")) {
-//                throw new ZKErrorResponse("Can't set user");
-//            }
-//
-//            refreshData();
-//            if (this.nextUid == uid) {
-//                this.nextUid++;
-//            }
-//            if (this.nextUserId.equals(userId)) {
-//                this.nextUserId = String.valueOf(this.nextUid);
-//            }
-//        }
-//
-//        public void saveUserTemplate(Object userRef, List<Finger> fingers) throws Exception {
-//            User user = resolveUser(userRef);
-//            if (fingers == null) fingers = new ArrayList<>();
-//            HRSaveUserTemplates(Collections.singletonList(new AbstractMap.SimpleEntry<>(user, fingers)));
-//        }
-//
-//        private User resolveUser(Object ref) throws Exception {
-//            if (ref instanceof User) return (User) ref;
-//            List<User> users = getUsers();
-//            for (User u : users) {
-//                if (u.userId.equals(String.valueOf(ref))) {
-//                    return u;
-//                }
-//            }
-//            throw new ZKErrorResponse("Can't find user");
-//        }
-//
-//        public void HRSaveUserTemplates(List<Map.Entry<User, List<Finger>>> userTemplates) throws Exception {
-//            ByteArrayOutputStream upack = new ByteArrayOutputStream();
-//            ByteArrayOutputStream fpack = new ByteArrayOutputStream();
-//            ByteArrayOutputStream table = new ByteArrayOutputStream();
-//            int fnum = 0x10;
-//            int tstart = 0;
-//
-//            for (Map.Entry<User, List<Finger>> entry : userTemplates) {
-//                User user = entry.getKey();
-//                List<Finger> fingers = entry.getValue();
-//                if (this.userPacketSize == 28) {
-//                    upack.writeBytes(user.repack29());
-//                } else {
-//                    upack.writeBytes(user.repack73());
-//                }
-//                for (Finger finger : fingers) {
-//                    byte[] tfp = finger.repack_only();
-//                    table.writeBytes(Struct.pack("<bHbI", 2, user.uid, fnum + finger.fid, tstart));
-//                    tstart += tfp.length;
-//                    fpack.writeBytes(tfp);
-//                }
-//            }
-//
-//            byte[] head = Struct.pack("III", upack.size(), table.size(), fpack.size());
-//            byte[] packet = concat(head, upack.toByteArray(), table.toByteArray(), fpack.toByteArray());
-//            sendWithBuffer(packet);
-//
-//            byte[] commandString = Struct.pack("<IHH", 12, 0, 8);
-//            Map<String, Object> cmdResponse = sendCommand(DeviceConstants._CMD_SAVE_USERTEMPS, commandString);
-//            if (!(boolean) cmdResponse.get("status")) {
-//                throw new ZKErrorResponse("Can't save usertemplates");
-//            }
-//            refreshData();
-//        }
-//
-//        private void sendWithBuffer(byte[] buffer) throws Exception {
-//            final int MAX_CHUNK = 1024;
-//            int size = buffer.length;
-//            freeData();
-//
-//            byte[] commandString = Struct.pack("I", size);
-//            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_PREPARE_DATA, commandString);
-//            if (!(boolean) cmdResponse.get("status")) {
-//                throw new ZKErrorResponse("Can't prepare data");
-//            }
-//
-//            int packets = size / MAX_CHUNK;
-//            int remain = size % MAX_CHUNK;
-//            int start = 0;
-//
-//            for (int i = 0; i < packets; i++) {
-//                sendChunk(Arrays.copyOfRange(buffer, start, start + MAX_CHUNK));
-//                start += MAX_CHUNK;
-//            }
-//            if (remain > 0) {
-//                sendChunk(Arrays.copyOfRange(buffer, start, start + remain));
-//            }
-//        }
-//
-//        private boolean sendChunk(byte[] commandString) throws Exception {
-//            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_DATA, commandString);
-//            if ((boolean) cmdResponse.get("status")) {
-//                return true;
-//            } else {
-//                throw new ZKErrorResponse("Can't send chunk");
-//            }
-//        }
-//
-//        // Pack values into byte array using format string
-//        public byte[] pack(String format, Object... values) {
-//            if (format.isEmpty()) {
-//                throw new IllegalArgumentException("Format string cannot be empty");
-//            }
-//
-//            // Default to little-endian unless specified
-//            ByteOrder byteOrder = ByteOrder.LITTLE_ENDIAN;
-//            int fmtIndex = 0;
-//
-//            // Check for endian specifier
-//            char firstChar = format.charAt(0);
-//            if (firstChar == '<') {
-//                byteOrder = ByteOrder.LITTLE_ENDIAN;
-//                fmtIndex = 1;
-//            } else if (firstChar == '>') {
-//                byteOrder = ByteOrder.BIG_ENDIAN;
-//                fmtIndex = 1;
-//            }
-//
-//            ByteBuffer buffer = ByteBuffer.allocate(1024).order(byteOrder);
-//            int valueIndex = 0;
-//
-//            for (int i = fmtIndex; i < format.length(); i++) {
-//                char fmt = format.charAt(i);
-//                switch (fmt) {
-//                    case 'B':
-//                        buffer.put((byte) ((int) values[valueIndex++]));
-//                        break;
-//                    case 'H':
-//                        buffer.putShort((short) ((int) values[valueIndex++]));
-//                        break;
-//                    case 'I':
-//                        buffer.putInt((int) values[valueIndex++]);
-//                        break;
-//                    case 's':
-//                        byte[] strBytes = (byte[]) values[valueIndex++];
-//                        buffer.put(strBytes);
-//                        break;
-//                    case 'x':
-//                        buffer.put((byte) 0); // padding
-//                        break;
-//                    default:
-//                        throw new IllegalArgumentException("Unsupported format: " + fmt);
-//                }
-//            }
-//
-//            buffer.flip();
-//            byte[] packed = new byte[buffer.limit()];
-//            buffer.get(packed);
-//            return packed;
-//        }
-//
 
-//
-//        // Unpack byte array into values using format string
-//        public static byte[] unpack(String format, byte[] data) {
-//            ByteBuffer buffer = ByteBuffer.wrap(data).order(ByteOrder.LITTLE_ENDIAN);
-//            ByteArrayOutputStream out = new ByteArrayOutputStream();
-//
-//            for (int i = 0; i < format.length(); i++) {
-//                char fmt = format.charAt(i);
-//                switch (fmt) {
-//                    case 'B': {
-//                        byte b = buffer.get();
-//                        out.write(b);
-//                        break;
-//                    }
-//                    case 'H': {
-//                        short s = buffer.getShort();
-//                        out.write(s & 0xFF);         // low byte
-//                        out.write((s >> 8) & 0xFF);  // high byte
-//                        break;
-//                    }
-//                    case 'I': {
-//                        int val = buffer.getInt();
-//                        out.write(val & 0xFF);
-//                        out.write((val >> 8) & 0xFF);
-//                        out.write((val >> 16) & 0xFF);
-//                        out.write((val >> 24) & 0xFF);
-//                        break;
-//                    }
-//                    case 'x': {
-//                        buffer.get(); // skip padding byte
-//                        break;
-//                    }
-//                    default:
-//                        throw new IllegalArgumentException("Unsupported format: " + fmt);
-//                }
-//            }
-//
-//            return out.toByteArray();
-//        }
-//        public Object[] unpack(String format, byte[] data, int offset) {
-//            List<Object> result = new ArrayList<>();
-//            ByteBuffer buffer = ByteBuffer.wrap(data);
-//            buffer.order(ByteOrder.LITTLE_ENDIAN);
-//            buffer.position(offset);
-//
-//            int i = 0;
-//            while (i < format.length()) {
-//                char c = format.charAt(i);
-//                switch (c) {
-//                    case 'H': // unsigned short (2 bytes)
-//                        result.add(buffer.getShort() & 0xFFFF);
-//                        break;
-//                    case 'I': // unsigned int (4 bytes)
-//                        result.add(buffer.getInt() & 0xFFFFFFFFL);
-//                        break;
-//                    case 'B': // unsigned byte (1 byte)
-//                        result.add(buffer.get() & 0xFF);
-//                        break;
-//                    case 's': // byte string
-//                        // Look ahead for length prefix (e.g., '8s')
-//                        int lenStart = i - 1;
-//                        while (lenStart >= 0 && Character.isDigit(format.charAt(lenStart))) lenStart--;
-//                        String lenStr = format.substring(lenStart + 1, i);
-//                        int len = Integer.parseInt(lenStr);
-//                        byte[] strBytes = new byte[len];
-//                        buffer.get(strBytes);
-//                        result.add(strBytes);
-//                        i += lenStr.length(); // skip length digits
-//                        break;
-//                    default:
-//                        throw new IllegalArgumentException("Unsupported format: " + c);
-//                }
-//                i++;
-//            }
-//
-//            return result.toArray();
-//        }
-//
-//        // Concatenate multiple byte arrays
-//        public byte[] concat(byte[]... arrays) {
-//            int totalLength = Arrays.stream(arrays).mapToInt(a -> a.length).sum();
-//            byte[] result = new byte[totalLength];
-//            int offset = 0;
-//
-//            for (byte[] array : arrays) {
-//                System.arraycopy(array, 0, result, offset, array.length);
-//                offset += array.length;
-//            }
-//
-//            return result;
-//        }
-//
-//        // Convenience method for packing a single int (little-endian)
-//        public byte[] packIntLE(int value) {
-//            ByteBuffer buffer = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN);
-//            buffer.putInt(value);
-//            return buffer.array();
-//        }
-//
-//        public boolean deleteUserTemplate(int uid, int tempId, String userId) throws Exception {
-//            if (this.tcp && userId != null && !userId.isEmpty()) {
-//                byte[] commandString = Struct.pack("<24sB", userId.getBytes(this.encoding), tempId);
-//                Map<String, Object> cmdResponse = sendCommand(DeviceConstants._CMD_DEL_USER_TEMP, commandString);
-//                return (boolean) cmdResponse.get("status");
-//            }
-//
-//            if (uid == 0) {
-//                List<User> users = getUsers();
-//                for (User u : users) {
-//                    if (u.userId.equals(userId)) {
-//                        uid = u.uid;
-//                        break;
-//                    }
-//                }
-//                if (uid == 0) return false;
-//            }
-//
-//            byte[] commandString = Struct.pack("hb", uid, tempId);
-//            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_DELETE_USERTEMP, commandString);
-//            return (boolean) cmdResponse.get("status");
-//        }
-//
-//        public boolean deleteUser(int uid, String userId) throws Exception {
-//            if (uid == 0) {
-//                List<User> users = getUsers();
-//                for (User u : users) {
-//                    if (u.userId.equals(userId)) {
-//                        uid = u.uid;
-//                        break;
-//                    }
-//                }
-//                if (uid == 0) return false;
-//            }
-//
-//            byte[] commandString = Struct.pack("h", uid);
-//            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_DELETE_USER, commandString);
-//            if (!(boolean) cmdResponse.get("status")) {
-//                throw new ZKErrorResponse("Can't delete user");
-//            }
-//
-//            refreshData();
-//            if (uid == (this.nextUid - 1)) {
-//                this.nextUid = uid;
-//            }
-//            return true;
-//        }
+        public boolean setTime(LocalDateTime timestamp) throws Exception {
+            byte[] commandString = Struct.pack("I", encodeTime(timestamp));
+            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_SET_TIME, commandString);
+            if ((boolean) cmdResponse.get("status")) {
+                return true;
+            } else {
+                throw new ZKErrorResponse("Can't set time");
+            }
+        }
+
+        public boolean powerOff() throws Exception {
+            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_POWEROFF, new byte[0], 1032);
+            if ((boolean) cmdResponse.get("status")) {
+                this.isConnect = false;
+                this.nextUid = 1;
+                return true;
+            } else {
+                throw new ZKErrorResponse("Can't power off");
+            }
+        }
+
+        public boolean refreshData() throws Exception {
+            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_REFRESHDATA);
+            if ((boolean) cmdResponse.get("status")) {
+                return true;
+            } else {
+                throw new ZKErrorResponse("Can't refresh data");
+            }
+        }
+
+        public void setUser(Integer uid, String name, int privilege, String password, String groupId, String userId, int card) throws Exception {
+            int userPacketSize = this.userPacketSize;
+            if (uid == null) {
+                uid = this.nextUid;
+                if (userId == null || userId.isEmpty()) {
+                    userId = this.nextUserId;
+                }
+            }
+            if (userId == null || userId.isEmpty()) {
+                userId = String.valueOf(uid);
+            }
+            if (privilege != DeviceConstants.USER_DEFAULT && privilege != DeviceConstants.USER_ADMIN) {
+                privilege = DeviceConstants.USER_DEFAULT;
+            }
+
+            byte[] commandString;
+            if (userPacketSize == 28) {
+                int group = (groupId == null || groupId.isEmpty()) ? 0 : Integer.parseInt(groupId);
+                try {
+                    commandString = Struct.pack("HB5s8sIxBHI", uid, privilege,
+                            password.getBytes(this.encoding),
+                            name.getBytes(this.encoding),
+                            card, group, 0, Integer.parseInt(userId));
+                } catch (Exception e) {
+                    if (this.verbose) {
+                        System.out.println("Error packing user: " + e.getMessage());
+                    }
+                    throw new ZKErrorResponse("Can't pack user");
+                }
+            } else {
+                byte[] nameBytes = name.getBytes(this.encoding);
+                byte[] namePad = new byte[24];
+                System.arraycopy(nameBytes, 0, namePad, 0, Math.min(nameBytes.length, 24));
+
+                byte[] cardStr = Arrays.copyOfRange(Struct.pack("<I", card), 0, 4);
+                commandString = Struct.pack("HB8s24s4sx7sx24s", uid, privilege,
+                        password.getBytes(this.encoding),
+                        namePad, cardStr,
+                        groupId.getBytes(this.encoding),
+                        userId.getBytes(this.encoding));
+            }
+
+            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_USER_WRQ, commandString, 1024);
+            if (this.verbose) {
+                System.out.println("Response: " + cmdResponse);
+            }
+            if (!(boolean) cmdResponse.get("status")) {
+                throw new ZKErrorResponse("Can't set user");
+            }
+
+            refreshData();
+            if (this.nextUid == uid) {
+                this.nextUid++;
+            }
+            if (this.nextUserId.equals(userId)) {
+                this.nextUserId = String.valueOf(this.nextUid);
+            }
+        }
+
+        public void saveUserTemplate(Object userRef, List<Finger> fingers) throws Exception {
+            User user = resolveUser(userRef);
+            if (fingers == null) fingers = new ArrayList<>();
+            HRSaveUserTemplates(Collections.singletonList(new AbstractMap.SimpleEntry<>(user, fingers)));
+        }
+
+        private User resolveUser(Object ref) throws Exception {
+            if (ref instanceof User) return (User) ref;
+            List<User> users = getUsers();
+            for (User u : users) {
+                if (u.userId.equals(String.valueOf(ref))) {
+                    return u;
+                }
+            }
+            throw new ZKErrorResponse("Can't find user");
+        }
+
+        public void HRSaveUserTemplates(List<Map.Entry<User, List<Finger>>> userTemplates) throws Exception {
+            ByteArrayOutputStream upack = new ByteArrayOutputStream();
+            ByteArrayOutputStream fpack = new ByteArrayOutputStream();
+            ByteArrayOutputStream table = new ByteArrayOutputStream();
+            int fnum = 0x10;
+            int tstart = 0;
+
+            for (Map.Entry<User, List<Finger>> entry : userTemplates) {
+                User user = entry.getKey();
+                if (user == null){
+                    throw  new ZKErrorResponse("Invalid user in usertemplates list");
+                }
+                List<Finger> fingers = entry.getValue();
+                if (this.userPacketSize == 28) {
+                    upack.writeBytes(user.repack29());
+                } else {
+                    upack.writeBytes(user.repack73());
+                }
+                for (Finger finger : fingers) {
+                    if (finger == null){
+                        throw new  ZKErrorResponse("Invalid finger template in usertemplates list");
+                    }
+                    byte[] tfp = finger.repack_only();
+                    table.writeBytes(Struct.pack("<bHbI", 2, user.uid, fnum + finger.fid, tstart));
+                    tstart += tfp.length;
+                    fpack.writeBytes(tfp);
+                }
+            }
+
+            byte[] head = Struct.pack("III", upack.size(), table.size(), fpack.size());
+            byte[] packet = concatAll(head, upack.toByteArray(), table.toByteArray(), fpack.toByteArray());
+            sendWithBuffer(packet);
+
+            byte[] commandString = Struct.pack("<IHH", 12, 0, 8);
+            Map<String, Object> cmdResponse = sendCommand(DeviceConstants._CMD_SAVE_USERTEMPS, commandString);
+            if (!(boolean) cmdResponse.get("status")) {
+                throw new ZKErrorResponse("Can't save usertemplates");
+            }
+            refreshData();
+        }
+
+        private void sendWithBuffer(byte[] buffer) throws Exception {
+            final int MAX_CHUNK = 1024;
+            int size = buffer.length;
+            freeData();
+
+            byte[] commandString = Struct.pack("I", size);
+            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_PREPARE_DATA, commandString);
+            if (!(boolean) cmdResponse.get("status")) {
+                throw new ZKErrorResponse("Can't prepare data");
+            }
+
+            int packets = size / MAX_CHUNK;
+            int remain = size % MAX_CHUNK;
+            int start = 0;
+
+            for (int i = 0; i < packets; i++) {
+                sendChunk(Arrays.copyOfRange(buffer, start, start + MAX_CHUNK));
+                start += MAX_CHUNK;
+            }
+            if (remain > 0) {
+                sendChunk(Arrays.copyOfRange(buffer, start, start + remain));
+            }
+        }
+
+        private boolean sendChunk(byte[] commandString) throws Exception {
+            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_DATA, commandString);
+            if ((boolean) cmdResponse.get("status")) {
+                return true;
+            } else {
+                throw new ZKErrorResponse("Can't send chunk");
+            }
+        }
+
+        public boolean deleteUserTemplate(int uid, int tempId, String userId) throws Exception {
+            if (this.tcp && userId != null && !userId.isEmpty()) {
+                byte[] commandString = Struct.pack("<24sB", userId.getBytes(this.encoding), tempId);
+                Map<String, Object> cmdResponse = sendCommand(DeviceConstants._CMD_DEL_USER_TEMP, commandString);
+                return (boolean) cmdResponse.get("status");
+            }
+
+            if (uid == 0) {
+                List<User> users = getUsers();
+                for (User u : users) {
+                    if (u.userId.equals(userId)) {
+                        uid = u.uid;
+                        break;
+                    }
+                }
+                if (uid == 0) return false;
+            }
+
+            byte[] commandString = Struct.pack("hb", uid, tempId);
+            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_DELETE_USERTEMP, commandString);
+            return (boolean) cmdResponse.get("status");
+        }
+
+        public boolean deleteUser(int uid, String userId) throws Exception {
+            if (uid == 0) {
+                List<User> users = getUsers();
+                for (User u : users) {
+                    if (u.userId.equals(userId)) {
+                        uid = u.uid;
+                        break;
+                    }
+                }
+                if (uid == 0) return false;
+            }
+
+            byte[] commandString = Struct.pack("h", uid);
+            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_DELETE_USER, commandString);
+            if (!(boolean) cmdResponse.get("status")) {
+                throw new ZKErrorResponse("Can't delete user");
+            }
+
+            refreshData();
+            if (uid == (this.nextUid - 1)) {
+                this.nextUid = uid;
+            }
+            return true;
+        }
 //
 //        public Finger getUserTemplate(String uidStr, int tempId, String userId) throws Exception {
 //            int uid = 0;
@@ -1373,119 +1232,119 @@ public class Base {
 //        }
 //
 
-public List<byte[]> splitByDelimiter(byte[] data, byte delimiter) {
-    List<byte[]> parts = new ArrayList<>();
-    int start = 0;
+        public List<byte[]> splitByDelimiter(byte[] data, byte delimiter) {
+            List<byte[]> parts = new ArrayList<>();
+            int start = 0;
 
-    for (int i = 0; i < data.length; i++) {
-        if (data[i] == delimiter) {
-            parts.add(Arrays.copyOfRange(data, start, i));
-            start = i + 1;
-        }
-    }
-
-    if (start < data.length) {
-        parts.add(Arrays.copyOfRange(data, start, data.length));
-    }
-
-    return parts;
-}
-
-public List<User> getUsers() throws Exception {
-    this.readSizes();
-    if (this.users == 0) {
-        this.nextUid = 1;
-        this.nextUserId = "1";
-        return new ArrayList<>();
-    }
-
-    List<User> users = new ArrayList<>();
-    int maxUid = 0;
-    ReadBufferResult result = readWithBuffer(DeviceConstants.CMD_USERTEMP_RRQ, DeviceConstants.FCT_USER);
-    byte[] userdata = result.data;
-    int size = result.size;
-
-    if (this.verbose) {
-        System.out.printf("user size %d (= %d)%n", size, userdata.length);
-    }
-
-    if (size <= 4) {
-        System.out.println("WRN: missing user data");
-        return new ArrayList<>();
-    }
-
-    int totalSize = (int) Struct.unpack("I", Arrays.copyOfRange(userdata, 0, 4))[0];
-    this.userPacketSize = totalSize / this.users;
-
-    if (this.userPacketSize != 28 && this.userPacketSize != 72) {
-        if (this.verbose) {
-            System.out.printf("WRN packet size would be %d%n", this.userPacketSize);
-        }
-    }
-
-    userdata = Arrays.copyOfRange(userdata, 4, userdata.length);
-
-    if (this.userPacketSize == 28) {
-        while (userdata.length >= 28) {
-            byte[] chunk = Arrays.copyOf(userdata, 28);
-            Object[] fields = Struct.unpack("<HB5s8sIxBhI", chunk);
-            int uid = (int) fields[0];
-            int privilege = (int) fields[1];
-            String password = new String((byte[]) fields[2], this.encoding).split("\0")[0];
-            String name = new String((byte[]) fields[3], this.encoding).split("\0")[0].trim();
-            int card = (int) fields[4];
-            String groupId = String.valueOf(fields[5]);
-            String userId = String.valueOf(fields[7]);
-
-            if (uid > maxUid) maxUid = uid;
-            if (name.isEmpty()) name = "NN-" + userId;
-
-            users.add(new User(uid, name, privilege, password, groupId, userId, card));
-
-            if (this.verbose) {
-                System.out.printf("[6]user: %d %d %s %s %d %s %d %s%n",
-                        uid, privilege, password, name, card, groupId, (int) fields[6], userId);
+            for (int i = 0; i < data.length; i++) {
+                if (data[i] == delimiter) {
+                    parts.add(Arrays.copyOfRange(data, start, i));
+                    start = i + 1;
+                }
             }
 
-            userdata = Arrays.copyOfRange(userdata, 28, userdata.length);
+            if (start < data.length) {
+                parts.add(Arrays.copyOfRange(data, start, data.length));
+            }
+
+            return parts;
         }
-    } else {
-        while (userdata.length >= 72) {
-            byte[] chunk = Arrays.copyOf(userdata, 72);
-            Object[] fields = Struct.unpack("<HB8s24sIx7sx24s", chunk);
-            int uid = (int) fields[0];
-            int privilege = (int) fields[1];
-            String password = new String(splitByDelimiter(((byte[]) fields[2]), (byte) 0x00).get(0), this.encoding);
-            String name = new String(splitByDelimiter(((byte[]) fields[3]), (byte) 0x00).get(0), this.encoding).strip();
-            String groupId = new String(splitByDelimiter(((byte[]) fields[5]), (byte) 0x00).get(0), this.encoding).strip();
-            String userId = new String(splitByDelimiter(((byte[]) fields[6]), (byte) 0x00).get(0), this.encoding);
-            int card = (int) fields[4];
 
-            if (uid > maxUid) maxUid = uid;
-            if (name.isEmpty()) name = "NN-" + userId;
+        public List<User> getUsers() throws Exception {
+            this.readSizes();
+            if (this.users == 0) {
+                this.nextUid = 1;
+                this.nextUserId = "1";
+                return new ArrayList<>();
+            }
 
-            users.add(new User(uid, name, privilege, password, groupId, userId, card));
-            userdata = Arrays.copyOfRange(userdata, 72, userdata.length);
-        }
-    }
+            List<User> users = new ArrayList<>();
+            int maxUid = 0;
+            ReadBufferResult result = readWithBuffer(DeviceConstants.CMD_USERTEMP_RRQ, DeviceConstants.FCT_USER);
+            byte[] userdata = result.data;
+            int size = result.size;
 
-    maxUid++;
-    this.nextUid = maxUid;
-    this.nextUserId = String.valueOf(maxUid);
+            if (this.verbose) {
+                System.out.printf("user size %d (= %d)%n", size, userdata.length);
+            }
 
-    while (true) {
-        boolean exists = users.stream().anyMatch(u -> u.userId.equals(this.nextUserId));
-        if (exists) {
+            if (size <= 4) {
+                System.out.println("WRN: missing user data");
+                return new ArrayList<>();
+            }
+
+            int totalSize = (int) Struct.unpack("I", Arrays.copyOfRange(userdata, 0, 4))[0];
+            this.userPacketSize = totalSize / this.users;
+
+            if (this.userPacketSize != 28 && this.userPacketSize != 72) {
+                if (this.verbose) {
+                    System.out.printf("WRN packet size would be %d%n", this.userPacketSize);
+                }
+            }
+
+            userdata = Arrays.copyOfRange(userdata, 4, userdata.length);
+
+            if (this.userPacketSize == 28) {
+                while (userdata.length >= 28) {
+                    byte[] chunk = Arrays.copyOf(userdata, 28);
+                    Object[] fields = Struct.unpack("<HB5s8sIxBhI", chunk);
+                    int uid = (int) fields[0];
+                    int privilege = (int) fields[1];
+                    String password = new String((byte[]) fields[2], this.encoding).split("\0")[0];
+                    String name = new String((byte[]) fields[3], this.encoding).split("\0")[0].trim();
+                    int card = (int) fields[4];
+                    String groupId = String.valueOf(fields[5]);
+                    String userId = String.valueOf(fields[7]);
+
+                    if (uid > maxUid) maxUid = uid;
+                    if (name.isEmpty()) name = "NN-" + userId;
+
+                    users.add(new User(uid, name, privilege, password, groupId, userId, card));
+
+                    if (this.verbose) {
+                        System.out.printf("[6]user: %d %d %s %s %d %s %d %s%n",
+                                uid, privilege, password, name, card, groupId, (int) fields[6], userId);
+                    }
+
+                    userdata = Arrays.copyOfRange(userdata, 28, userdata.length);
+                }
+            } else {
+                while (userdata.length >= 72) {
+                    byte[] chunk = Arrays.copyOf(userdata, 72);
+                    Object[] fields = Struct.unpack("<HB8s24sIx7sx24s", chunk);
+                    int uid = (int) fields[0];
+                    int privilege = (int) fields[1];
+                    String password = new String(splitByDelimiter(((byte[]) fields[2]), (byte) 0x00).get(0), this.encoding);
+                    String name = new String(splitByDelimiter(((byte[]) fields[3]), (byte) 0x00).get(0), this.encoding).strip();
+                    String groupId = new String(splitByDelimiter(((byte[]) fields[5]), (byte) 0x00).get(0), this.encoding).strip();
+                    String userId = new String(splitByDelimiter(((byte[]) fields[6]), (byte) 0x00).get(0), this.encoding);
+                    int card = (int) fields[4];
+
+                    if (uid > maxUid) maxUid = uid;
+                    if (name.isEmpty()) name = "NN-" + userId;
+
+                    users.add(new User(uid, name, privilege, password, groupId, userId, card));
+                    userdata = Arrays.copyOfRange(userdata, 72, userdata.length);
+                }
+            }
+
             maxUid++;
+            this.nextUid = maxUid;
             this.nextUserId = String.valueOf(maxUid);
-        } else {
-            break;
-        }
-    }
 
-    return users;
-}
-//
+            while (true) {
+                boolean exists = users.stream().anyMatch(u -> u.userId.equals(this.nextUserId));
+                if (exists) {
+                    maxUid++;
+                    this.nextUserId = String.valueOf(maxUid);
+                } else {
+                    break;
+                }
+            }
+
+            return users;
+        }
+        //
 //        public boolean cancelCapture() throws Exception {
 //            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_CANCELCAPTURE);
 //            return (boolean) cmdResponse.get("status");
@@ -1513,7 +1372,7 @@ public List<User> getUsers() throws Exception {
             Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_OPTIONS_WRQ, commandString);
             return (boolean) cmdResponse.get("status");
         }
-//
+        //
 //
 //        public boolean enrollUser(int uid, int tempId, String userId) throws Exception {
 //            int command = DeviceConstants.CMD_STARTENROLL;
@@ -1622,11 +1481,11 @@ public List<User> getUsers() throws Exception {
             return Arrays.copyOf(buffer, read);
         }
 //
-////        private int extractResult(byte[] dataRecv) {
-////            byte[] padded = pad(dataRecv, tcp ? 24 : 16);
-////            int offset = tcp ? 16 : 8;
-////            return (int) Struct.unpack("H", padded, offset)[0];
-////        }
+        ////        private int extractResult(byte[] dataRecv) {
+        ////            byte[] padded = pad(dataRecv, tcp ? 24 : 16);
+        ////            int offset = tcp ? 16 : 8;
+        ////            return (int) Struct.unpack("H", padded, offset)[0];
+        ////        }
 //
 //        private byte[] pad(byte[] data, int length) {
 //            return Arrays.copyOf(data, Math.max(data.length, length));
@@ -1959,15 +1818,31 @@ public List<User> getUsers() throws Exception {
             return result;
         }
 
+        private byte[] concatAll(byte[]... chunks) {
+            int totalLength = 0;
+            for (byte[] chunk : chunks) {
+                totalLength += chunk.length;
+            }
+
+            byte[] result = new byte[totalLength];
+            int pos = 0;
+            for (byte[] chunk : chunks) {
+                System.arraycopy(chunk, 0, result, pos, chunk.length);
+                pos += chunk.length;
+            }
+
+            return result;
+        }
+
         private byte[] readChunk(int start, int size) throws Exception {
-            for (int retries = 0; retries < 5; retries++) {
+            for (int retries = 0; retries < 100; retries++) {
                 int command = DeviceConstants._CMD_READ_BUFFER;
                 byte[] commandString = Struct.pack("<ii", start, size);
                 int responseSize = tcp ? size + 32 : 1024 + 8;
 
                 sendCommand(command, commandString, responseSize);
 
-                
+
                 byte[] data = receiveChunk();
 
                 if (data != null && data.length == size) {
