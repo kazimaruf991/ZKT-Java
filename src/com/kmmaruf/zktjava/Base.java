@@ -47,9 +47,9 @@ public class Base {
 
     public static byte[] makeCommKey(int key, int sessionId, int ticks) {
         /*
-           take a password and session_id and scramble them to send to the machine.
-           copied from commpro.c - MakeKey
-       */
+         * take a password and session_id and scramble them to send to the machine.
+         * copied from commpro.c - MakeKey
+         */
 
         int k = 0;
 
@@ -202,24 +202,24 @@ public class Base {
         public String nextUserId = "1";
         public int userPacketSize = 28; // default zk6
         public boolean endLiveCapture = false;
-        private int response;  // Holds the full response payload from device or socket
-        private Object[] header;    // Holds the protocol-specific header portion
+        private int response; // Holds the full response payload from device or socket
+        private Object[] header; // Holds the protocol-specific header portion
         private int tcpLength;
 
         /**
          * Construct a new 'ZK' object.
          *
-         * @param ip         machine's IP address
-         * @param port       machine's port
-         * @param timeout    timeout number
-         * @param password   passint
-         * @param forceUdp   use UDP connection
-         * @param ommitPing  check ip using ping before connect
-         * @param verbose    showing log while run the commands
-         * @param encoding   user encoding
+         * @param ip        machine's IP address
+         * @param port      machine's port
+         * @param timeout   timeout number
+         * @param password  passint
+         * @param forceUdp  use UDP connection
+         * @param ommitPing check ip using ping before connect
+         * @param verbose   showing log while run the commands
+         * @param encoding  user encoding
          */
         public ZK(String ip, int port, int timeout, int password,
-                  boolean forceUdp, boolean ommitPing, boolean verbose, String encoding) {
+                boolean forceUdp, boolean ommitPing, boolean verbose, String encoding) {
 
             User.ENCODING = encoding;
             this.ip = ip;
@@ -261,7 +261,6 @@ public class Base {
             this(ip, port, 60, password, false, false, false, "UTF-8");
         }
 
-
         // Boolean test equivalent of __nonzero__
         public boolean isConnected() {
             return this.isConnect;
@@ -286,7 +285,8 @@ public class Base {
         // Create TCP top header
         private byte[] createTcpTop(byte[] packet) {
             int length = packet.length;
-            byte[] top =  Struct .pack("<HHI", DeviceConstants.MACHINE_PREPARE_DATA_1, DeviceConstants.MACHINE_PREPARE_DATA_2, length);
+            byte[] top = Struct.pack("<HHI", DeviceConstants.MACHINE_PREPARE_DATA_1,
+                    DeviceConstants.MACHINE_PREPARE_DATA_2, length);
             return concat(top, packet);
         }
 
@@ -296,7 +296,7 @@ public class Base {
             Object[] unpacked = Struct.unpack((8 + commandString.length) + "B", buf);
             Object checksum = Struct.unpack("H", createChecksum(unpacked))[0];
             replyId += 1;
-            if (replyId >= DeviceConstants.USHRT_MAX){
+            if (replyId >= DeviceConstants.USHRT_MAX) {
                 replyId -= DeviceConstants.USHRT_MAX;
             }
 
@@ -305,16 +305,15 @@ public class Base {
             return concat(buf, commandString);
         }
 
-
         // Calculates the checksum of the packet
         private byte[] createChecksum(Object[] p) {
 
             int l = p.length;
             int checksum = 0;
-            while (l > 1){
+            while (l > 1) {
                 checksum += (int) Struct.unpack("H", Struct.pack("BB", p[0], p[1]))[0];
                 p = Arrays.copyOfRange(p, 2, p.length);
-                if (checksum > DeviceConstants.USHRT_MAX){
+                if (checksum > DeviceConstants.USHRT_MAX) {
                     checksum -= DeviceConstants.USHRT_MAX;
                 }
                 l -= 2;
@@ -324,13 +323,13 @@ public class Base {
                 checksum += (int) p[p.length - 1];
             }
 
-            while (checksum > DeviceConstants.USHRT_MAX){
+            while (checksum > DeviceConstants.USHRT_MAX) {
                 checksum -= DeviceConstants.USHRT_MAX;
             }
 
             checksum = ~checksum;
 
-            while (checksum < 0){
+            while (checksum < 0) {
                 checksum += DeviceConstants.USHRT_MAX;
             }
 
@@ -339,12 +338,13 @@ public class Base {
 
         // Tests TCP top header and returns payload size
         private int testTcpTop(byte[] packet) {
-            if (packet.length <= 8) return 0;
+            if (packet.length <= 8)
+                return 0;
 
             Object[] unpackedPacket = Struct.unpack("<HHI", Arrays.copyOfRange(packet, 0, 8));
 
-            if (((int)unpackedPacket[0]) == DeviceConstants.MACHINE_PREPARE_DATA_1 &&
-                    ((int)unpackedPacket[1]) == DeviceConstants.MACHINE_PREPARE_DATA_2) {
+            if (((int) unpackedPacket[0]) == DeviceConstants.MACHINE_PREPARE_DATA_1 &&
+                    ((int) unpackedPacket[1]) == DeviceConstants.MACHINE_PREPARE_DATA_2) {
                 return (int) unpackedPacket[2];
             }
             return 0;
@@ -359,7 +359,8 @@ public class Base {
         }
 
         // Sends command to the terminal
-        public Map<String, Object> sendCommand(int command, byte[] commandString, int responseSize) throws ZKErrorResponse, ZKErrorConnection, ZKNetworkError {
+        public Map<String, Object> sendCommand(int command, byte[] commandString, int responseSize)
+                throws ZKErrorResponse, ZKErrorConnection, ZKNetworkError {
             if ((command != DeviceConstants.CMD_CONNECT && command != DeviceConstants.CMD_AUTH) && !this.isConnect) {
                 throw new ZKErrorConnection("Instance is not connected.");
             }
@@ -370,8 +371,8 @@ public class Base {
                     byte[] top = createTcpTop(buf);
                     this.tcpSocket.getOutputStream().write(top);
 
-                    //byte[] tcpDataRecv = new byte[responseSize + 8];
-                    //this.tcpSocket.getInputStream().read(tcpDataRecv);
+                    // byte[] tcpDataRecv = new byte[responseSize + 8];
+                    // this.tcpSocket.getInputStream().read(tcpDataRecv);
 
                     InputStream inputStream = this.tcpSocket.getInputStream();
                     int maxBytes = responseSize + 8;
@@ -386,8 +387,6 @@ public class Base {
                         // Trim to actual bytes received
                         tcpDataRecv = Arrays.copyOf(tcpDataRecv, bytesRead);
                     }
-
-
 
                     tcpLength = testTcpTop(tcpDataRecv);
                     if (tcpLength == 0) {
@@ -415,10 +414,10 @@ public class Base {
             this.replyId = (int) this.header[3];
             this.data = Arrays.copyOfRange(this.dataRecv, 8, this.dataRecv.length);
 
-
             Map<String, Object> result = new HashMap<>();
 
-            if (this.response == DeviceConstants.CMD_ACK_OK || this.response == DeviceConstants.CMD_PREPARE_DATA || this.response == DeviceConstants.CMD_DATA){
+            if (this.response == DeviceConstants.CMD_ACK_OK || this.response == DeviceConstants.CMD_PREPARE_DATA
+                    || this.response == DeviceConstants.CMD_DATA) {
                 result.put("code", this.response);
                 result.put("status", true);
                 return result;
@@ -430,8 +429,9 @@ public class Base {
         }
 
         // Sends ACK_OK event
-        private void ackOk() throws Exception{
-            byte[] buf = createHeader(DeviceConstants.CMD_ACK_OK, new byte[0], this.sessionId, DeviceConstants.USHRT_MAX - 1);
+        private void ackOk() throws Exception {
+            byte[] buf = createHeader(DeviceConstants.CMD_ACK_OK, new byte[0], this.sessionId,
+                    DeviceConstants.USHRT_MAX - 1);
             try {
                 if (this.tcp) {
                     byte[] top = createTcpTop(buf);
@@ -448,83 +448,85 @@ public class Base {
         private int getDataSize() {
             if (this.response == DeviceConstants.CMD_PREPARE_DATA) {
                 int size = (int) Struct.unpack("I", Arrays.copyOfRange(this.data, 0, 4))[0];
-                //ByteBuffer buf = ByteBuffer.wrap(this.data, 0, 4).order(ByteOrder.LITTLE_ENDIAN);
-                //return buf.getInt();
+                // ByteBuffer buf = ByteBuffer.wrap(this.data, 0,
+                // 4).order(ByteOrder.LITTLE_ENDIAN);
+                // return buf.getInt();
                 return size;
             }
             return 0;
         }
+
         //
-//        // Reverses hex string
-//        private String reverseHex(String hex) {
-//            StringBuilder data = new StringBuilder();
-//            for (int i = hex.length() / 2 - 1; i >= 0; i--) {
-//                data.append(hex, i * 2, i * 2 + 2);
-//            }
-//            return data.toString();
-//        }
-//
+        // // Reverses hex string
+        // private String reverseHex(String hex) {
+        // StringBuilder data = new StringBuilder();
+        // for (int i = hex.length() / 2 - 1; i >= 0; i--) {
+        // data.append(hex, i * 2, i * 2 + 2);
+        // }
+        // return data.toString();
+        // }
+        //
         private LocalDateTime decodeTime(byte[] t) {
             ByteBuffer buffer = ByteBuffer.wrap(t).order(ByteOrder.LITTLE_ENDIAN);
             long raw = Integer.toUnsignedLong(buffer.getInt());
 
-            int second = (int)(raw % 60);
+            int second = (int) (raw % 60);
             raw /= 60;
 
-            int minute = (int)(raw % 60);
+            int minute = (int) (raw % 60);
             raw /= 60;
 
-            int hour = (int)(raw % 24);
+            int hour = (int) (raw % 24);
             raw /= 24;
 
-            int day = (int)(raw % 31) + 1;
+            int day = (int) (raw % 31) + 1;
             raw /= 31;
 
-            int month = (int)(raw % 12) + 1;
+            int month = (int) (raw % 12) + 1;
             raw /= 12;
 
-            int year = (int)(raw + 2000);
+            int year = (int) (raw + 2000);
 
             return LocalDateTime.of(year, month, day, hour, minute, second);
         }
 
-//        public LocalDateTime parseTime(long intTimeValue)
-//        {
-//            int TotalDays;
-//            int second;
-//            int minute;
-//            int hour;
-//            int day;
-//            int month;
-//            int year;
-//
-//            second = (int) (intTimeValue % 60);
-//            minute = (int) (intTimeValue / 60 % 60);
-//            TotalDays = (int) (intTimeValue / 60 / 60 / 24);
-//            hour = (int) (intTimeValue / 60 / 60 % 24);
-//            day = TotalDays % 31 + 1;
-//            month = TotalDays / 31 % 12 + 1;
-//            year = TotalDays / 31 / 12 + 2000;
-//            //parseExtraInfo(dtInfo);
-//            if (minute < 0)
-//                minute = 0;
-//            return LocalDateTime.of(year, month, day, hour, minute, second);
-//        }
-
+        // public LocalDateTime parseTime(long intTimeValue)
+        // {
+        // int TotalDays;
+        // int second;
+        // int minute;
+        // int hour;
+        // int day;
+        // int month;
+        // int year;
         //
-//        private LocalDateTime decodeTimeHex(byte[] timehex) {
-//            if (timehex.length != 6) throw new IllegalArgumentException("Expected 6 bytes");
-//
-//            int year   = Byte.toUnsignedInt(timehex[0]) + 2000;
-//            int month  = Byte.toUnsignedInt(timehex[1]);
-//            int day    = Byte.toUnsignedInt(timehex[2]);
-//            int hour   = Byte.toUnsignedInt(timehex[3]);
-//            int minute = Byte.toUnsignedInt(timehex[4]);
-//            int second = Byte.toUnsignedInt(timehex[5]);
-//
-//            return LocalDateTime.of(year, month, day, hour, minute, second);
-//        }
-//
+        // second = (int) (intTimeValue % 60);
+        // minute = (int) (intTimeValue / 60 % 60);
+        // TotalDays = (int) (intTimeValue / 60 / 60 / 24);
+        // hour = (int) (intTimeValue / 60 / 60 % 24);
+        // day = TotalDays % 31 + 1;
+        // month = TotalDays / 31 % 12 + 1;
+        // year = TotalDays / 31 / 12 + 2000;
+        // //parseExtraInfo(dtInfo);
+        // if (minute < 0)
+        // minute = 0;
+        // return LocalDateTime.of(year, month, day, hour, minute, second);
+        // }
+
+        private LocalDateTime decodeTimeHex(byte[] timehex) {
+            if (timehex.length != 6)
+                throw new IllegalArgumentException("Expected 6 bytes");
+
+            int year = Byte.toUnsignedInt(timehex[0]) + 2000;
+            int month = Byte.toUnsignedInt(timehex[1]);
+            int day = Byte.toUnsignedInt(timehex[2]);
+            int hour = Byte.toUnsignedInt(timehex[3]);
+            int minute = Byte.toUnsignedInt(timehex[4]);
+            int second = Byte.toUnsignedInt(timehex[5]);
+
+            return LocalDateTime.of(year, month, day, hour, minute, second);
+        }
+
         private int encodeTime(LocalDateTime t) {
             int year = t.getYear() % 100;
             int month = t.getMonthValue();
@@ -541,7 +543,8 @@ public class Base {
             this.endLiveCapture = false;
 
             if (!this.ommitPing && !helper.testPing()) {
-                throw new ZKNetworkError("Can't reach device (ping " + this.address.getAddress().getHostAddress() + ")");
+                throw new ZKNetworkError(
+                        "Can't reach device (ping " + this.address.getAddress().getHostAddress() + ")");
             }
 
             if (!this.forceUdp && helper.testTCP() == 0) {
@@ -553,10 +556,11 @@ public class Base {
             this.replyId = DeviceConstants.USHRT_MAX - 1;
 
             Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_CONNECT);
-            this.sessionId = (int) this.header[2];//Byte.toUnsignedInt(this.header[2]);
+            this.sessionId = (int) this.header[2];// Byte.toUnsignedInt(this.header[2]);
 
             if ((int) cmdResponse.get("code") == DeviceConstants.CMD_ACK_UNAUTH) {
-                if (this.verbose) System.out.println("Try auth");
+                if (this.verbose)
+                    System.out.println("Try auth");
                 byte[] commandString = makeCommKey(this.password, this.sessionId);
                 cmdResponse = sendCommand(DeviceConstants.CMD_AUTH, commandString);
             }
@@ -568,7 +572,8 @@ public class Base {
                 if ((int) cmdResponse.get("code") == DeviceConstants.CMD_ACK_UNAUTH) {
                     throw new ZKErrorResponse("Unauthenticated");
                 }
-                if (this.verbose) System.out.println("Connect error response: " + cmdResponse.get("code"));
+                if (this.verbose)
+                    System.out.println("Connect error response: " + cmdResponse.get("code"));
                 throw new ZKErrorResponse("Invalid response: Can't connect");
             }
         }
@@ -582,7 +587,7 @@ public class Base {
                     this.tcpSocket.close();
                 }
 
-                if (this.udpSocket != null){
+                if (this.udpSocket != null) {
                     this.udpSocket.close();
                 }
                 return true;
@@ -624,7 +629,8 @@ public class Base {
         }
 
         public String getSerialNumber() throws Exception {
-            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_OPTIONS_RRQ, "~SerialNumber\u0000".getBytes(), 1024);
+            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_OPTIONS_RRQ,
+                    "~SerialNumber\u0000".getBytes(), 1024);
             if ((boolean) cmdResponse.get("status")) {
                 byte[] raw = extractValue(this.data);
                 return new String(raw).replace("=", "");
@@ -634,7 +640,8 @@ public class Base {
         }
 
         public String getPlatform() throws Exception {
-            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_OPTIONS_RRQ, "~Platform\u0000".getBytes(), 1024);
+            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_OPTIONS_RRQ, "~Platform\u0000".getBytes(),
+                    1024);
             if ((boolean) cmdResponse.get("status")) {
                 byte[] raw = extractValue(this.data);
                 return new String(raw).replace("=", "");
@@ -644,7 +651,8 @@ public class Base {
         }
 
         public String getMac() throws Exception {
-            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_OPTIONS_RRQ, "MAC\u0000".getBytes(), 1024);
+            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_OPTIONS_RRQ, "MAC\u0000".getBytes(),
+                    1024);
             if ((boolean) cmdResponse.get("status")) {
                 byte[] raw = extractValue(this.data);
                 return new String(raw);
@@ -654,7 +662,8 @@ public class Base {
         }
 
         public String getDeviceName() throws Exception {
-            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_OPTIONS_RRQ, "~DeviceName\u0000".getBytes(), 1024);
+            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_OPTIONS_RRQ,
+                    "~DeviceName\u0000".getBytes(), 1024);
             if ((boolean) cmdResponse.get("status")) {
                 byte[] raw = extractValue(this.data);
                 return new String(raw);
@@ -664,7 +673,8 @@ public class Base {
         }
 
         public int getFaceVersion() throws Exception {
-            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_OPTIONS_RRQ, "ZKFaceVersion\u0000".getBytes(), 1024);
+            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_OPTIONS_RRQ,
+                    "ZKFaceVersion\u0000".getBytes(), 1024);
             if ((boolean) cmdResponse.get("status")) {
                 byte[] raw = extractValue(this.data);
                 return safeCast(raw, 0);
@@ -674,7 +684,8 @@ public class Base {
         }
 
         public int getFpVersion() throws Exception {
-            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_OPTIONS_RRQ, "~ZKFPVersion\u0000".getBytes(), 1024);
+            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_OPTIONS_RRQ,
+                    "~ZKFPVersion\u0000".getBytes(), 1024);
             if ((boolean) cmdResponse.get("status")) {
                 byte[] raw = extractValue(this.data);
                 return safeCast(raw, 0);
@@ -683,9 +694,10 @@ public class Base {
             }
         }
 
-        public void clearError() throws Exception{
+        public void clearError() throws Exception {
             clearError(new byte[0]);
         }
+
         public void clearError(byte[] commandString) throws Exception {
             sendCommand(DeviceConstants.CMD_ACK_ERROR, commandString, 1024);
             sendCommand(DeviceConstants.CMD_ACK_UNKNOWN, commandString, 1024);
@@ -705,7 +717,8 @@ public class Base {
 
         private int indexOf(byte[] array, byte value, int start) {
             for (int i = start; i < array.length; i++) {
-                if (array[i] == value) return i;
+                if (array[i] == value)
+                    return i;
             }
             return array.length;
         }
@@ -720,8 +733,8 @@ public class Base {
 
         public Integer getExtendFmt() throws Exception {
             /*
-                Determine extend fmt
-            */
+             * Determine extend fmt
+             */
 
             byte[] commandString = "~ExtendFmt\u0000".getBytes();
             Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_OPTIONS_RRQ, commandString, 1024);
@@ -758,7 +771,7 @@ public class Base {
             }
         }
 
-        public Integer getCompatOldFirmware() throws Exception{
+        public Integer getCompatOldFirmware() throws Exception {
             byte[] commandString = "CompatOldFirmware\u0000".getBytes();
             Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_OPTIONS_RRQ, commandString, 1024);
             if ((boolean) cmdResponse.get("status")) {
@@ -770,15 +783,16 @@ public class Base {
             }
         }
 
-        public Map<String, String> getNetworkParams() throws Exception{
+        public Map<String, String> getNetworkParams() throws Exception {
             /*
-            get network params
+             * get network params
              */
             String ip = "";
             String mask = "";
             String gate = "";
 
-            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_OPTIONS_RRQ, "IPAddress\u0000".getBytes(), 1024);
+            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_OPTIONS_RRQ, "IPAddress\u0000".getBytes(),
+                    1024);
             if ((boolean) cmdResponse.get("status")) {
                 ip = new String(extractValue(this.data));
             }
@@ -855,7 +869,7 @@ public class Base {
         }
 
         public boolean unlock(int timeInSeconds) throws Exception {
-            if (timeInSeconds == 0){
+            if (timeInSeconds == 0) {
                 timeInSeconds = 3;
             }
             byte[] commandString = Struct.pack("I", timeInSeconds * 10);
@@ -867,7 +881,7 @@ public class Base {
             }
         }
 
-        public boolean getLockState() throws Exception{
+        public boolean getLockState() throws Exception {
             Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_DOORSTATE_RRQ);
             return (boolean) cmdResponse.get("status");
         }
@@ -882,8 +896,7 @@ public class Base {
                     this.users, this.usersCap,
                     this.fingers, this.fingersCap,
                     this.records, this.recCap,
-                    this.faces, this.facesCap
-            );
+                    this.faces, this.facesCap);
         }
 
         public boolean restart() throws Exception {
@@ -961,7 +974,8 @@ public class Base {
             }
         }
 
-        public void setUser(Integer uid, String name, int privilege, String password, String groupId, String userId, int card) throws Exception {
+        public void setUser(Integer uid, String name, int privilege, String password, String groupId, String userId,
+                int card) throws Exception {
             int userPacketSize = this.userPacketSize;
             if (uid == null) {
                 uid = this.nextUid;
@@ -1022,12 +1036,14 @@ public class Base {
 
         public void saveUserTemplate(Object userRef, List<Finger> fingers) throws Exception {
             User user = resolveUser(userRef);
-            if (fingers == null) fingers = new ArrayList<>();
+            if (fingers == null)
+                fingers = new ArrayList<>();
             HRSaveUserTemplates(Collections.singletonList(new AbstractMap.SimpleEntry<>(user, fingers)));
         }
 
         private User resolveUser(Object ref) throws Exception {
-            if (ref instanceof User) return (User) ref;
+            if (ref instanceof User)
+                return (User) ref;
             List<User> users = getUsers();
             for (User u : users) {
                 if (u.userId.equals(String.valueOf(ref))) {
@@ -1046,8 +1062,8 @@ public class Base {
 
             for (Map.Entry<User, List<Finger>> entry : userTemplates) {
                 User user = entry.getKey();
-                if (user == null){
-                    throw  new ZKErrorResponse("Invalid user in usertemplates list");
+                if (user == null) {
+                    throw new ZKErrorResponse("Invalid user in usertemplates list");
                 }
                 List<Finger> fingers = entry.getValue();
                 if (this.userPacketSize == 28) {
@@ -1056,8 +1072,8 @@ public class Base {
                     upack.writeBytes(user.repack73());
                 }
                 for (Finger finger : fingers) {
-                    if (finger == null){
-                        throw new  ZKErrorResponse("Invalid finger template in usertemplates list");
+                    if (finger == null) {
+                        throw new ZKErrorResponse("Invalid finger template in usertemplates list");
                     }
                     byte[] tfp = finger.repack_only();
                     table.writeBytes(Struct.pack("<bHbI", 2, user.uid, fnum + finger.fid, tstart));
@@ -1126,7 +1142,8 @@ public class Base {
                         break;
                     }
                 }
-                if (uid == 0) return false;
+                if (uid == 0)
+                    return false;
             }
 
             byte[] commandString = Struct.pack("hb", uid, tempId);
@@ -1143,7 +1160,8 @@ public class Base {
                         break;
                     }
                 }
-                if (uid == 0) return false;
+                if (uid == 0)
+                    return false;
             }
 
             byte[] commandString = Struct.pack("h", uid);
@@ -1169,7 +1187,8 @@ public class Base {
                         break;
                     }
                 }
-                if (uid == 0) return null;
+                if (uid == 0)
+                    return null;
             } else {
                 uid = Integer.parseInt(uidStr);
             }
@@ -1180,21 +1199,25 @@ public class Base {
                 byte[] data = receiveChunk();
                 if (data != null) {
                     byte[] resp = Arrays.copyOf(data, data.length - 1);
-                    if (resp.length >= 6 && Arrays.equals(Arrays.copyOfRange(resp, resp.length - 6, resp.length), new byte[6])) {
+                    if (resp.length >= 6
+                            && Arrays.equals(Arrays.copyOfRange(resp, resp.length - 6, resp.length), new byte[6])) {
                         resp = Arrays.copyOf(resp, resp.length - 6);
                     }
                     return new Finger(uid, tempId, 1, resp);
                 }
-                if (this.verbose) System.out.println("retry get_user_template");
+                if (this.verbose)
+                    System.out.println("retry get_user_template");
             }
 
-            if (this.verbose) System.out.println("Can't read/find finger");
+            if (this.verbose)
+                System.out.println("Can't read/find finger");
             return null;
         }
 
         public List<Finger> getTemplates() throws Exception {
             readSizes();
-            if (this.fingers == 0) return new ArrayList<>();
+            if (this.fingers == 0)
+                return new ArrayList<>();
 
             List<Finger> templates = new ArrayList<>();
             ReadBufferResult result = readWithBuffer(DeviceConstants.CMD_DB_RRQ, DeviceConstants.FCT_FINGERTMP);
@@ -1202,7 +1225,8 @@ public class Base {
             int size = result.size;
 
             if (size < 4) {
-                if (this.verbose) System.out.println("WRN: no user data");
+                if (this.verbose)
+                    System.out.println("WRN: no user data");
                 return templates;
             }
 
@@ -1219,11 +1243,12 @@ public class Base {
                 int fid = (byte) header[2];
                 int valid = (byte) header[3];
 
-//                byte[] sliced = Arrays.copyOfRange(templatedata, 6, size);
-//                String template = new String(sliced, 0, sliced.length, this.encoding);
+                // byte[] sliced = Arrays.copyOfRange(templatedata, 6, size);
+                // String template = new String(sliced, 0, sliced.length, this.encoding);
                 byte[] template = Arrays.copyOfRange(templatedata, 6, recordSize);
                 Finger finger = new Finger(uid, fid, valid, template);
-                if (this.verbose) System.out.println(finger);
+                if (this.verbose)
+                    System.out.println(finger);
 
                 templates.add(finger);
                 templatedata = Arrays.copyOfRange(templatedata, recordSize, templatedata.length);
@@ -1232,7 +1257,6 @@ public class Base {
 
             return templates;
         }
-
 
         public List<byte[]> splitByDelimiter(byte[] data, byte delimiter) {
             List<byte[]> parts = new ArrayList<>();
@@ -1298,8 +1322,10 @@ public class Base {
                     String groupId = String.valueOf(fields[5]);
                     String userId = String.valueOf(fields[7]);
 
-                    if (uid > maxUid) maxUid = uid;
-                    if (name.isEmpty()) name = "NN-" + userId;
+                    if (uid > maxUid)
+                        maxUid = uid;
+                    if (name.isEmpty())
+                        name = "NN-" + userId;
 
                     users.add(new User(uid, name, privilege, password, groupId, userId, card));
 
@@ -1316,14 +1342,20 @@ public class Base {
                     Object[] fields = Struct.unpack("<HB8s24sIx7sx24s", chunk);
                     int uid = (int) fields[0];
                     int privilege = (int) fields[1];
-                    String password = new String(splitByDelimiter(((byte[]) fields[2]), (byte) 0x00).get(0), this.encoding);
-                    String name = new String(splitByDelimiter(((byte[]) fields[3]), (byte) 0x00).get(0), this.encoding).strip();
-                    String groupId = new String(splitByDelimiter(((byte[]) fields[5]), (byte) 0x00).get(0), this.encoding).strip();
-                    String userId = new String(splitByDelimiter(((byte[]) fields[6]), (byte) 0x00).get(0), this.encoding);
+                    String password = new String(splitByDelimiter(((byte[]) fields[2]), (byte) 0x00).get(0),
+                            this.encoding);
+                    String name = new String(splitByDelimiter(((byte[]) fields[3]), (byte) 0x00).get(0), this.encoding)
+                            .strip();
+                    String groupId = new String(splitByDelimiter(((byte[]) fields[5]), (byte) 0x00).get(0),
+                            this.encoding).strip();
+                    String userId = new String(splitByDelimiter(((byte[]) fields[6]), (byte) 0x00).get(0),
+                            this.encoding);
                     int card = (int) fields[4];
 
-                    if (uid > maxUid) maxUid = uid;
-                    if (name.isEmpty()) name = "NN-" + userId;
+                    if (uid > maxUid)
+                        maxUid = uid;
+                    if (name.isEmpty())
+                        name = "NN-" + userId;
 
                     users.add(new User(uid, name, privilege, password, groupId, userId, card));
                     userdata = Arrays.copyOfRange(userdata, 72, userdata.length);
@@ -1369,12 +1401,11 @@ public class Base {
             }
         }
 
-        public boolean setSdkBuild1() throws Exception{
+        public boolean setSdkBuild1() throws Exception {
             byte[] commandString = "SDKBuild=1".getBytes();
             Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_OPTIONS_WRQ, commandString);
             return (boolean) cmdResponse.get("status");
         }
-
 
         public boolean enrollUser(int uid, int tempId, String userId) throws Exception {
             int command = DeviceConstants.CMD_STARTENROLL;
@@ -1408,57 +1439,71 @@ public class Base {
             int attempts = 3;
 
             while (attempts > 0) {
-                if (this.verbose) System.out.printf("A:%d esperando primer regevent%n", attempts);
+                if (this.verbose)
+                    System.out.printf("A:%d esperando primer regevent%n", attempts);
                 byte[] dataRecv = recvBytes(1032);
                 ackOk();
-                if (this.verbose) System.out.println(BinUtils.byteArrayToHex(dataRecv));
+                if (this.verbose)
+                    System.out.println(BinUtils.byteArrayToHex(dataRecv));
 
-                if (this.tcp){
-                    if (dataRecv.length > 16){
+                if (this.tcp) {
+                    if (dataRecv.length > 16) {
                         int res = (int) Struct.unpack("H", Arrays.copyOfRange(padRight(dataRecv, 24), 16, 18))[0];
-                        if (this.verbose) System.out.printf("res %d%n", res);
-                        if (res == 0 || res == 6 || res == 4){
-                            if (this.verbose) System.out.println("Possible timeout or registration failed");
+                        if (this.verbose)
+                            System.out.printf("res %d%n", res);
+                        if (res == 0 || res == 6 || res == 4) {
+                            if (this.verbose)
+                                System.out.println("Possible timeout or registration failed");
                             break;
                         }
                     }
-                }else {
-                    if (dataRecv.length > 8){
+                } else {
+                    if (dataRecv.length > 8) {
                         int res = (int) Struct.unpack("H", Arrays.copyOfRange(padRight(dataRecv, 16), 8, 10))[0];
-                        if (this.verbose) System.out.printf("res %d%n", res);
-                        if (res == 6 || res == 4){
-                            if (this.verbose) System.out.println("Possible timeout");
+                        if (this.verbose)
+                            System.out.printf("res %d%n", res);
+                        if (res == 6 || res == 4) {
+                            if (this.verbose)
+                                System.out.println("Possible timeout");
                             break;
                         }
                     }
                 }
 
-                if (this.verbose) System.out.printf("A:%d waiting for 2nd regevent%n", attempts);
+                if (this.verbose)
+                    System.out.printf("A:%d waiting for 2nd regevent%n", attempts);
                 dataRecv = recvBytes(1032);
                 ackOk();
-                if (this.verbose) System.out.println(BinUtils.byteArrayToHex(dataRecv));
+                if (this.verbose)
+                    System.out.println(BinUtils.byteArrayToHex(dataRecv));
 
-                if (this.tcp){
-                    if (dataRecv.length > 8){
+                if (this.tcp) {
+                    if (dataRecv.length > 8) {
                         int res = (int) Struct.unpack("H", Arrays.copyOfRange(padRight(dataRecv, 24), 16, 18))[0];
-                        if (this.verbose) System.out.printf("res %d%n", res);
-                        if (res == 6 || res == 4){
-                            if (this.verbose) System.out.println("Possible timeout or registration failed");
+                        if (this.verbose)
+                            System.out.printf("res %d%n", res);
+                        if (res == 6 || res == 4) {
+                            if (this.verbose)
+                                System.out.println("Possible timeout or registration failed");
                             break;
                         } else if (res == 0x64) {
-                            if (this.verbose) System.out.println("ok, continue?");
+                            if (this.verbose)
+                                System.out.println("ok, continue?");
                             attempts--;
                         }
                     }
-                }else {
-                    if (dataRecv.length > 8){
-                        int res = (int) Struct.unpack("H", Arrays.copyOfRange(padRight(dataRecv, 16),8, 10))[0];
-                        if (this.verbose) System.out.printf("res %d%n", res);
-                        if (res == 6 || res == 4){
-                            if (this.verbose) System.out.println("Possible timeout or registration failed");
+                } else {
+                    if (dataRecv.length > 8) {
+                        int res = (int) Struct.unpack("H", Arrays.copyOfRange(padRight(dataRecv, 16), 8, 10))[0];
+                        if (this.verbose)
+                            System.out.printf("res %d%n", res);
+                        if (res == 6 || res == 4) {
+                            if (this.verbose)
+                                System.out.println("Possible timeout or registration failed");
                             break;
                         } else if (res == 0x64) {
-                            if (this.verbose) System.out.println("ok, continue?");
+                            if (this.verbose)
+                                System.out.println("ok, continue?");
                             attempts--;
                         }
                     }
@@ -1468,23 +1513,28 @@ public class Base {
             if (attempts == 0) {
                 byte[] dataRecv = recvBytes(1032);
                 ackOk();
-                if (this.verbose) System.out.println(BinUtils.byteArrayToHex(dataRecv));
+                if (this.verbose)
+                    System.out.println(BinUtils.byteArrayToHex(dataRecv));
 
                 int res;
-                if (tcp){
+                if (tcp) {
                     res = (int) Struct.unpack("H", Arrays.copyOfRange(padRight(dataRecv, 24), 16, 18))[0];
-                }else {
-                    res = (int) Struct.unpack("H", Arrays.copyOfRange(padRight(dataRecv, 16),8, 10))[0];
+                } else {
+                    res = (int) Struct.unpack("H", Arrays.copyOfRange(padRight(dataRecv, 16), 8, 10))[0];
                 }
-                if (this.verbose) System.out.printf("res %d%n", res);
+                if (this.verbose)
+                    System.out.printf("res %d%n", res);
 
-                if (res == 5 && this.verbose) System.out.println("finger duplicate");
-                if ((res == 6 || res == 4) && this.verbose) System.out.println("possible timeout");
+                if (res == 5 && this.verbose)
+                    System.out.println("finger duplicate");
+                if ((res == 6 || res == 4) && this.verbose)
+                    System.out.println("possible timeout");
 
                 if (res == 0) {
                     int size = (int) Struct.unpack("H", Arrays.copyOfRange(padRight(dataRecv, 16), 10, 12))[0];
                     int pos = (int) Struct.unpack("H", Arrays.copyOfRange(padRight(dataRecv, 16), 12, 14))[0];
-                    if (this.verbose) System.out.printf("enroll ok %d %d%n", size, pos);
+                    if (this.verbose)
+                        System.out.printf("enroll ok %d %d%n", size, pos);
                     done = true;
                 }
             }
@@ -1497,21 +1547,11 @@ public class Base {
             return done;
         }
 
-        public static byte[] padRight(byte[] input, int totalLength) {
+        public byte[] padRight(byte[] input, int totalLength) {
             byte[] padded = new byte[totalLength]; // filled with 0x00 by default
             System.arraycopy(input, 0, padded, 0, Math.min(input.length, totalLength));
             return padded;
         }
-
-        public static String encode(byte[] data) {
-            StringBuilder hex = new StringBuilder();
-            for (byte b : data) {
-                hex.append(String.format("%02x", b));
-            }
-            return hex.toString();
-        }
-
-
 
         // Helper methods
         private byte[] recvBytes(int length) throws IOException {
@@ -1520,134 +1560,131 @@ public class Base {
             int read = in.read(buffer);
             return Arrays.copyOf(buffer, read);
         }
-//
-        ////        private int extractResult(byte[] dataRecv) {
-        ////            byte[] padded = pad(dataRecv, tcp ? 24 : 16);
-        ////            int offset = tcp ? 16 : 8;
-        ////            return (int) Struct.unpack("H", padded, offset)[0];
-        ////        }
-//
-//        private byte[] pad(byte[] data, int length) {
-//            return Arrays.copyOf(data, Math.max(data.length, length));
-//        }
-//
-//        public void liveCapture(int newTimeout, EventListener listener) throws Exception {
-//            boolean wasEnabled = this.isEnabled;
-//            List<User> users = getUsers();
-//
-//            cancelCapture();
-//            verifyUser();
-//
-//            if (!this.isEnabled) {
-//                enableDevice();
-//            }
-//
-//            if (this.verbose) System.out.println("start live_capture");
-//
-//            registerEvent(DeviceConstants.EF_ATTLOG);
-//            this.tcpSocket.setSoTimeout(newTimeout * 1000);
-//            this.udpSocket.setSoTimeout(newTimeout * 1000);
-//            this.endLiveCapture = false;
-//
-//            while (!this.endLiveCapture) {
-//                try {
-//                    if (this.verbose) System.out.println("esperando event");
-//
-//                    byte[] dataRecv = recvBytes(1032);
-//                    ackOk();
-//
-//                    int size;
-//                    Object[] header;
-//                    byte[] data;
-//
-//                    if (this.tcp) {
-//                        size = (int) Struct.unpack("<HHI", dataRecv, 0)[2];
-//                        header = Struct.unpack("HHHH", dataRecv, 8);
-//                        data = Arrays.copyOfRange(dataRecv, 16, dataRecv.length);
-//                    } else {
-//                        size = dataRecv.length;
-//                        header = Struct.unpack("<4H", dataRecv, 0);
-//                        data = Arrays.copyOfRange(dataRecv, 8, dataRecv.length);
-//                    }
-//
-//                    if ((int) header[0] != DeviceConstants.CMD_REG_EVENT) {
-//                        if (this.verbose) System.out.printf("not event! %x%n", header[0]);
-//                        continue;
-//                    }
-//
-//                    if (data.length == 0) {
-//                        if (this.verbose) System.out.println("empty");
-//                        continue;
-//                    }
-//
-//                    while (data.length >= 10) {
-//                        Object[] fields = null;
-//                        int packetSize = data.length;
-//
-//                        if (packetSize == 10) {
-//                            fields = Struct.unpack("<HBB6s", data, 0);
-//                            data = Arrays.copyOfRange(data, 10, data.length);
-//                        } else if (packetSize == 12) {
-//                            fields = Struct.unpack("<IBB6s", data, 0);
-//                            data = Arrays.copyOfRange(data, 12, data.length);
-//                        } else if (packetSize == 14) {
-//                            fields = Struct.unpack("<HBB6s4s", data, 0);
-//                            data = Arrays.copyOfRange(data, 14, data.length);
-//                        } else if (packetSize == 32) {
-//                            fields = Struct.unpack("<24sBB6s", data, 0);
-//                            data = Arrays.copyOfRange(data, 32, data.length);
-//                        } else if (packetSize == 36) {
-//                            fields = Struct.unpack("<24sBB6s4s", data, 0);
-//                            data = Arrays.copyOfRange(data, 36, data.length);
-//                        } else if (packetSize == 37) {
-//                            fields = Struct.unpack("<24sBB6s5s", data, 0);
-//                            data = Arrays.copyOfRange(data, 37, data.length);
-//                        } else if (packetSize >= 52) {
-//                            fields = Struct.unpack("<24sBB6s20s", data, 0);
-//                            data = Arrays.copyOfRange(data, 52, data.length);
-//                        }
-//
-//                        if (fields == null) continue;
-//
-//                        Object rawUserId = fields[0];
-//                        int status = (int) fields[1];
-//                        int punch = (int) fields[2];
-//                        byte[] timehex = (byte[]) fields[3];
-//
-//                        String userId;
-//                        if (rawUserId instanceof Integer) {
-//                            userId = String.valueOf(rawUserId);
-//                        } else {
-//                            userId = new String((byte[]) rawUserId).split("\0")[0];
-//                        }
-//
-//                        LocalDateTime timestamp = decodeTimeHex(timehex);
-//                        Optional<User> matched = users.stream().filter(u -> u.userId.equals(userId)).findFirst();
-//                        int uid = matched.map(u -> u.uid).orElse(Integer.parseInt(userId));
-//
-//                        listener.onEvent(new Attendance(uid, userId, timestamp, status, punch));
-//                    }
-//
-//                } catch (SocketTimeoutException e) {
-//                    if (this.verbose) System.out.println("time out");
-//                    listener.onEvent(null); // keep watching
-//                } catch (InterruptedIOException | RuntimeException e) {
-//                    if (this.verbose) System.out.println("break");
-//                    break;
-//                }
-//            }
-//
-//            if (this.verbose) System.out.println("exit gracefully");
-//
-//            this.tcpSocket.setSoTimeout(this.timeout * 1000);
-//            this.udpSocket.setSoTimeout(this.timeout * 1000);
-//            registerEvent(0);
-//
-//            if (!wasEnabled) {
-//                disableDevice();
-//            }
-//        }
-//
+
+        public void liveCapture(int newTimeout, EventListener listener) throws Exception {
+            boolean wasEnabled = this.isEnabled;
+            List<User> users = getUsers();
+
+            cancelCapture();
+            verifyUser();
+
+            if (!this.isEnabled) {
+                enableDevice();
+            }
+
+            if (this.verbose)
+                System.out.println("start live_capture");
+
+            registerEvent(DeviceConstants.EF_ATTLOG);
+            this.tcpSocket.setSoTimeout(newTimeout * 1000);
+            this.udpSocket.setSoTimeout(newTimeout * 1000);
+            this.endLiveCapture = false;
+
+            while (!this.endLiveCapture) {
+                try {
+                    System.out.println("waiting for event");
+
+                    byte[] dataRecv = recvBytes(1032);
+                    ackOk();
+
+                    int size;
+                    Object[] header;
+                    byte[] data;
+
+                    if (this.tcp) {
+                        size = (int) Struct.unpack("<HHI", Arrays.copyOfRange(dataRecv, 0, 8))[2];
+                        header = Struct.unpack("HHHH", Arrays.copyOfRange(dataRecv, 8, 16));
+                        data = Arrays.copyOfRange(dataRecv, 16, dataRecv.length);
+                    } else {
+                        size = dataRecv.length;
+                        header = Struct.unpack("<4H", Arrays.copyOfRange(dataRecv, 0, 8));
+                        data = Arrays.copyOfRange(dataRecv, 8, dataRecv.length);
+                    }
+
+                    if ((int) header[0] != DeviceConstants.CMD_REG_EVENT) {
+                        if (this.verbose)
+                            System.out.printf("not event! %x%n", header[0]);
+                        continue;
+                    }
+
+                    if (data.length == 0) {
+                        if (this.verbose)
+                            System.out.println("empty");
+                        continue;
+                    }
+
+                    while (data.length >= 10) {
+                        Object[] fields = null;
+                        int packetSize = data.length;
+
+                        if (packetSize == 10) {
+                            fields = Struct.unpack("<HBB6s", data);
+                            data = Arrays.copyOfRange(data, 10, data.length);
+                        } else if (packetSize == 12) {
+                            fields = Struct.unpack("<IBB6s", data);
+                            data = Arrays.copyOfRange(data, 12, data.length);
+                        } else if (packetSize == 14) {
+                            fields = Struct.unpack("<HBB6s4s", data);
+                            data = Arrays.copyOfRange(data, 14, data.length);
+                        } else if (packetSize == 32) {
+                            fields = Struct.unpack("<24sBB6s", Arrays.copyOfRange(data, 0, 32));
+                            data = Arrays.copyOfRange(data, 32, data.length);
+                        } else if (packetSize == 36) {
+                            fields = Struct.unpack("<24sBB6s4s", Arrays.copyOfRange(data, 0, 36));
+                            data = Arrays.copyOfRange(data, 36, data.length);
+                        } else if (packetSize == 37) {
+                            fields = Struct.unpack("<24sBB6s5s", Arrays.copyOfRange(data, 0, 37));
+                            data = Arrays.copyOfRange(data, 37, data.length);
+                        } else if (packetSize >= 52) {
+                            fields = Struct.unpack("<24sBB6s20s", Arrays.copyOfRange(data, 0, 52));
+                            data = Arrays.copyOfRange(data, 52, data.length);
+                        }
+
+                        if (fields == null)
+                            continue;
+
+                        Object rawUserId = fields[0];
+                        int status = (int) fields[1];
+                        int punch = (int) fields[2];
+                        byte[] timehex = (byte[]) fields[3];
+
+                        String userId;
+                        if (rawUserId instanceof Integer) {
+                            userId = String.valueOf(rawUserId);
+                        } else {
+                            userId = new String((byte[]) rawUserId).split("\0")[0];
+                        }
+
+                        LocalDateTime timestamp = decodeTimeHex(timehex);
+                        Optional<User> matched = users.stream().filter(u -> u.userId.equals(userId)).findFirst();
+                        int uid = matched.map(u -> u.uid).orElse(Integer.parseInt(userId));
+
+                        listener.onEvent(new Attendance(uid, userId, timestamp, status, punch));
+                    }
+
+                } catch (SocketTimeoutException e) {
+                    if (this.verbose)
+                        System.out.println("time out");
+                    listener.onEvent(null); // keep watching
+                } catch (InterruptedIOException | RuntimeException e) {
+                    if (this.verbose)
+                        System.out.println("break");
+                    break;
+                }
+            }
+
+            if (this.verbose)
+                System.out.println("exit gracefully");
+
+            this.tcpSocket.setSoTimeout(this.timeout * 1000);
+            this.udpSocket.setSoTimeout(this.timeout * 1000);
+            registerEvent(0);
+
+            if (!wasEnabled) {
+                disableDevice();
+            }
+        }
+
         public boolean clearData() throws Exception {
             int command = DeviceConstants.CMD_CLEAR_DATA;
             byte[] commandString = new byte[0];
@@ -1675,55 +1712,66 @@ public class Base {
             List<byte[]> dataChunks = new ArrayList<>();
             int tcpLength = testTcpTop(dataRecv);
 
-            if (verbose) System.out.printf("tcp_length %d, size %d%n", tcpLength, size);
+            if (verbose)
+                System.out.printf("tcp_length %d, size %d%n", tcpLength, size);
             if (tcpLength <= 0) {
-                if (verbose) System.out.println("Incorrect tcp packet");
+                if (verbose)
+                    System.out.println("Incorrect tcp packet");
                 return new TcpResult(null, new byte[0]);
             }
 
             if ((tcpLength - 8) < size) {
-                if (verbose) System.out.println("tcp length too small... retrying");
+                if (verbose)
+                    System.out.println("tcp length too small... retrying");
 
                 TcpResult partial = receiveTcpData(dataRecv, tcpLength - 8);
                 dataChunks.add(partial.payload);
                 size -= partial.payload.length;
 
-                if (verbose) System.out.printf("new tcp DATA packet to fill missing %d%n", size);
+                if (verbose)
+                    System.out.printf("new tcp DATA packet to fill missing %d%n", size);
                 byte[] newRecv = concat(partial.remainder, recvBytes(size + 16));
 
-                if (verbose) System.out.printf("new tcp DATA starting with %d bytes%n", newRecv.length);
+                if (verbose)
+                    System.out.printf("new tcp DATA starting with %d bytes%n", newRecv.length);
                 TcpResult finalPart = receiveTcpData(newRecv, size);
                 dataChunks.add(finalPart.payload);
 
-                if (verbose) System.out.printf("for missing %d received %d with extra %d%n",
-                        size, finalPart.payload.length, finalPart.remainder.length);
+                if (verbose)
+                    System.out.printf("for missing %d received %d with extra %d%n",
+                            size, finalPart.payload.length, finalPart.remainder.length);
 
                 return new TcpResult(concatAll(dataChunks), finalPart.remainder);
             }
 
             int received = dataRecv.length;
-            if (verbose) System.out.printf("received %d, size %d%n", received, size);
+            if (verbose)
+                System.out.printf("received %d, size %d%n", received, size);
 
             int response = (int) Struct.unpack("HHHH", Arrays.copyOfRange(dataRecv, 8, 16))[0];
             if (received >= (size + 32)) {
                 if (response == DeviceConstants.CMD_DATA) {
                     byte[] payload = Arrays.copyOfRange(dataRecv, 16, size + 16);
-                    if (verbose) System.out.printf("resp complete len %d%n", payload.length);
+                    if (verbose)
+                        System.out.printf("resp complete len %d%n", payload.length);
                     byte[] remainder = Arrays.copyOfRange(dataRecv, size + 16, dataRecv.length);
                     return new TcpResult(payload, remainder);
                 } else {
-                    if (verbose) System.out.printf("incorrect response!!! %d%n", response);
+                    if (verbose)
+                        System.out.printf("incorrect response!!! %d%n", response);
                     return new TcpResult(null, new byte[0]);
                 }
             } else {
-                if (verbose) System.out.printf("try DATA incomplete (actual valid %d)%n", received - 16);
+                if (verbose)
+                    System.out.printf("try DATA incomplete (actual valid %d)%n", received - 16);
                 dataChunks.add(Arrays.copyOfRange(dataRecv, 16, size + 16));
                 size -= (received - 16);
 
                 byte[] brokenHeader = new byte[0];
                 if (size < 0) {
                     brokenHeader = Arrays.copyOfRange(dataRecv, size, dataRecv.length);
-                    if (verbose) System.out.println("broken " + BinUtils.byteArrayToHex(brokenHeader));
+                    if (verbose)
+                        System.out.println("broken " + BinUtils.byteArrayToHex(brokenHeader));
                 }
 
                 if (size > 0) {
@@ -1737,19 +1785,23 @@ public class Base {
 
         private byte[] receiveRawData(int size) throws IOException {
             List<byte[]> chunks = new ArrayList<>();
-            if (verbose) System.out.printf("expecting %d bytes raw data%n", size);
+            if (verbose)
+                System.out.printf("expecting %d bytes raw data%n", size);
 
             while (size > 0) {
                 byte[] recv = recvBytes(size);
                 int received = recv.length;
 
-                if (verbose) System.out.printf("partial recv %d%n", received);
-                if (received < 100 && verbose) System.out.println("   recv " + BinUtils.byteArrayToHex(recv));
+                if (verbose)
+                    System.out.printf("partial recv %d%n", received);
+                if (received < 100 && verbose)
+                    System.out.println("   recv " + BinUtils.byteArrayToHex(recv));
 
                 chunks.add(recv);
                 size -= received;
 
-                if (verbose) System.out.printf("still need %d%n", size);
+                if (verbose)
+                    System.out.printf("still need %d%n", size);
             }
 
             return concatAll(chunks);
@@ -1758,25 +1810,30 @@ public class Base {
         private byte[] receiveChunk() throws Exception {
             if (this.response == DeviceConstants.CMD_DATA) {
                 if (tcp) {
-                    if (verbose) System.out.printf("_rc_DATA! is %d bytes, tcp length is %d%n", data.length, tcpLength);
+                    if (verbose)
+                        System.out.printf("_rc_DATA! is %d bytes, tcp length is %d%n", data.length, tcpLength);
                     if (data.length < (tcpLength - 8)) {
                         int need = (tcpLength - 8) - data.length;
-                        if (verbose) System.out.printf("need more data: %d%n", need);
+                        if (verbose)
+                            System.out.printf("need more data: %d%n", need);
                         byte[] more = receiveRawData(need);
                         return concat(data, more);
                     } else {
-                        if (verbose) System.out.println("Enough data");
+                        if (verbose)
+                            System.out.println("Enough data");
                         return data;
                     }
                 } else {
-                    if (verbose) System.out.printf("_rc len is %d%n", data.length);
+                    if (verbose)
+                        System.out.printf("_rc len is %d%n", data.length);
                     return data;
                 }
             } else if (this.response == DeviceConstants.CMD_PREPARE_DATA) {
                 List<byte[]> chunks = new ArrayList<>();
                 int size = getDataSize();
 
-                if (verbose) System.out.printf("receive chunk: prepare data size is %d%n", size);
+                if (verbose)
+                    System.out.printf("receive chunk: prepare data size is %d%n", size);
 
                 if (tcp) {
                     byte[] dataRecv = data.length >= (8 + size)
@@ -1791,18 +1848,21 @@ public class Base {
                             : result.remainder;
 
                     if (ack.length < 16) {
-                        if (verbose) System.out.printf("trying to complete broken ACK %d /16%n", ack.length);
+                        if (verbose)
+                            System.out.printf("trying to complete broken ACK %d /16%n", ack.length);
                         ack = concat(ack, recvBytes(16 - ack.length));
                     }
 
                     if (testTcpTop(ack) == 0) {
-                        if (verbose) System.out.println("invalid chunk tcp ACK OK");
+                        if (verbose)
+                            System.out.println("invalid chunk tcp ACK OK");
                         return null;
                     }
 
                     int responseCode = (int) Struct.unpack("HHHH", Arrays.copyOfRange(ack, 8, 16))[0];
                     if (responseCode == DeviceConstants.CMD_ACK_OK) {
-                        if (verbose) System.out.println("chunk tcp ACK OK!");
+                        if (verbose)
+                            System.out.println("chunk tcp ACK OK!");
                         return concatAll(chunks);
                     }
 
@@ -1818,7 +1878,8 @@ public class Base {
                     byte[] packet = recvBytes(1032);
                     int responseCode = (int) Struct.unpack("<4H", Arrays.copyOfRange(packet, 0, 8))[0];
 
-                    if (verbose) System.out.printf("# packet response is: %d%n", responseCode);
+                    if (verbose)
+                        System.out.printf("# packet response is: %d%n", responseCode);
 
                     if (responseCode == DeviceConstants.CMD_DATA) {
                         chunks.add(Arrays.copyOfRange(packet, 8, packet.length));
@@ -1826,16 +1887,19 @@ public class Base {
                     } else if (responseCode == DeviceConstants.CMD_ACK_OK) {
                         break;
                     } else {
-                        if (verbose) System.out.println("broken!");
+                        if (verbose)
+                            System.out.println("broken!");
                         break;
                     }
 
-                    if (verbose) System.out.printf("still needs %d%n", size);
+                    if (verbose)
+                        System.out.printf("still needs %d%n", size);
                 }
 
                 return concatAll(chunks);
             } else {
-                if (verbose) System.out.printf("invalid response %d%n", response);
+                if (verbose)
+                    System.out.printf("invalid response %d%n", response);
                 return null;
             }
         }
@@ -1882,7 +1946,6 @@ public class Base {
 
                 sendCommand(command, commandString, responseSize);
 
-
                 byte[] data = receiveChunk();
 
                 if (data != null && data.length == size) {
@@ -1913,26 +1976,32 @@ public class Base {
         public ReadBufferResult readWithBuffer(int command, int fct, int ext) throws Exception {
             int MAX_CHUNK = tcp ? 0xFFc0 : 16 * 1024;
             byte[] commandString = Struct.pack("<bhii", 1, command, fct, ext);
-            if (verbose) System.out.println("rwb cs: " + Arrays.toString(commandString));
+            if (verbose)
+                System.out.println("rwb cs: " + Arrays.toString(commandString));
 
             int responseSize = 1024;
             int start = 0;
             List<byte[]> chunks = new ArrayList<>();
 
-            Map<String, Object> response = sendCommand(DeviceConstants._CMD_PREPARE_BUFFER, commandString, responseSize);
+            Map<String, Object> response = sendCommand(DeviceConstants._CMD_PREPARE_BUFFER, commandString,
+                    responseSize);
 
-            if (!(boolean) response.get("status")) throw new ZKErrorResponse("RWB Not supported");
+            if (!(boolean) response.get("status"))
+                throw new ZKErrorResponse("RWB Not supported");
 
-            if (((int)response.get("code")) == DeviceConstants.CMD_DATA) {
+            if (((int) response.get("code")) == DeviceConstants.CMD_DATA) {
                 if (tcp) {
-                    if (verbose) System.out.printf("DATA! is %d bytes, tcp length is %d%n", data.length, tcpLength);
+                    if (verbose)
+                        System.out.printf("DATA! is %d bytes, tcp length is %d%n", data.length, tcpLength);
                     if (data.length < (tcpLength - 8)) {
                         int need = (tcpLength - 8) - data.length;
-                        if (verbose) System.out.printf("need more data: %d%n", need);
+                        if (verbose)
+                            System.out.printf("need more data: %d%n", need);
                         byte[] more = receiveRawData(need);
                         return new ReadBufferResult(concat(data, more), data.length + more.length);
                     } else {
-                        if (verbose) System.out.println("Enough data");
+                        if (verbose)
+                            System.out.println("Enough data");
                         return new ReadBufferResult(data, data.length);
                     }
                 } else {
@@ -1941,11 +2010,14 @@ public class Base {
             }
 
             int size = (int) Struct.unpack("I", Arrays.copyOfRange(data, 1, 5))[0];
-            if (verbose) System.out.printf("size will be %d%n", size);
+            if (verbose)
+                System.out.printf("size will be %d%n", size);
 
             int remain = size % MAX_CHUNK;
             int packets = (size - remain) / MAX_CHUNK;
-            if (verbose) System.out.printf("rwb: #%d packets of max %d bytes, and extra %d bytes remain%n", packets, MAX_CHUNK, remain);
+            if (verbose)
+                System.out.printf("rwb: #%d packets of max %d bytes, and extra %d bytes remain%n", packets, MAX_CHUNK,
+                        remain);
 
             for (int i = 0; i < packets; i++) {
                 chunks.add(readChunk(start, MAX_CHUNK));
@@ -1957,85 +2029,116 @@ public class Base {
             }
 
             freeData();
-            if (verbose) System.out.printf("_read w/chunk %d bytes%n", start);
+            if (verbose)
+                System.out.printf("_read w/chunk %d bytes%n", start);
             return new ReadBufferResult(concatAll(chunks), start);
         }
-//
-//        public List<Attendance> getAttendance() throws Exception {
-//            readSizes();
-//            if (records == 0) return new ArrayList<>();
-//
-//            List<User> users = getUsers();
-//            if (verbose) System.out.println(users);
-//
-//            List<Attendance> attendances = new ArrayList<>();
-//            ReadBufferResult result = readWithBuffer(DeviceConstants.CMD_ATTLOG_RRQ);
-//            byte[] attendanceData = result.data;
-//            int size = result.size;
-//
-//            if (size < 4) {
-//                if (verbose) System.out.println("WRN: no attendance data");
-//                return new ArrayList<>();
-//            }
-//
-//            int totalSize = (int) Struct.unpack("I", attendanceData, 0)[0];
-//            int recordSize = totalSize / records;
-//            if (verbose) System.out.println("record_size is " + recordSize);
-//
-//            attendanceData = Arrays.copyOfRange(attendanceData, 4, attendanceData.length);
-//
-//            while (attendanceData.length >= recordSize) {
-//                Attendance attendance = null;
-//
-//                if (recordSize == 8) {
-//                    Object[] fields = Struct.unpack("HB4sB", attendanceData, 0);
-//                    int uid = (int) fields[0];
-//                    int status = (int) fields[1];
-//                    byte[] timestampRaw = (byte[]) fields[2];
-//                    int punch = (int) fields[3];
-//
-//                    String userId = users.stream().filter(u -> u.uid == uid).map(u -> u.userId).findFirst().orElse(String.valueOf(uid));
-//                    LocalDateTime timestamp = decodeTime(timestampRaw);
-//                    attendance = new Attendance(uid, userId, timestamp, status, punch);
-//                    attendanceData = Arrays.copyOfRange(attendanceData, 8, attendanceData.length);
-//
-//                } else if (recordSize == 16) {
-//                    Object[] fields = Struct.unpack("<I4sBB2sI", attendanceData, 0);
-//                    String userId = String.valueOf(fields[0]);
-//                    byte[] timestampRaw = (byte[]) fields[1];
-//                    int status = (int) fields[2];
-//                    int punch = (int) fields[3];
-//
-//                    String finalUserId = userId;
-//                    Optional<User> match = users.stream().filter(u -> u.userId.equals(finalUserId)).findFirst();
-//                    int uid = match.map(u -> u.uid).orElse(Integer.parseInt(userId));
-//                    userId = match.map(u -> u.userId).orElse(userId);
-//
-//                    LocalDateTime timestamp = decodeTime(timestampRaw);
-//                    attendance = new Attendance(uid, userId, timestamp, status, punch);
-//                    attendanceData = Arrays.copyOfRange(attendanceData, 16, attendanceData.length);
-//
-//                } else {
-//                    Object[] fields = Struct.unpack("<H24sB4sB8s", attendanceData, 0);
-//                    int uid = (int) fields[0];
-//                    String userId = new String((byte[]) fields[1]).split("\0")[0];
-//                    int status = (int) fields[2];
-//                    byte[] timestampRaw = (byte[]) fields[3];
-//                    int punch = (int) fields[4];
-//
-//                    LocalDateTime timestamp = decodeTime(timestampRaw);
-//                    attendance = new Attendance(uid, userId, timestamp, status, punch);
-//                    attendanceData = Arrays.copyOfRange(attendanceData, recordSize, attendanceData.length);
-//                }
-//
-//                if (attendance != null) {
-//                    attendances.add(attendance);
-//                }
-//            }
-//
-//            return attendances;
-//        }
-//
+
+        public List<Attendance> getAttendance() throws Exception {
+            readSizes();
+            if (records == 0)
+                return new ArrayList<>();
+
+            List<User> users = getUsers();
+            if (verbose)
+                System.out.println(users);
+
+            List<Attendance> attendances = new ArrayList<>();
+            ReadBufferResult result = readWithBuffer(DeviceConstants.CMD_ATTLOG_RRQ);
+            byte[] attendanceData = result.data;
+            int size = result.size;
+
+            if (size < 4) {
+                if (verbose)
+                    System.out.println("WRN: no attendance data");
+                return new ArrayList<>();
+            }
+
+            int totalSize = (int) Struct.unpack("I", Arrays.copyOfRange(attendanceData, 0, 4))[0];
+            int recordSize = totalSize / records;
+            if (verbose)
+                System.out.println("record_size is " + recordSize);
+
+            attendanceData = Arrays.copyOfRange(attendanceData, 4, attendanceData.length);
+
+            while (attendanceData.length >= recordSize) {
+                Attendance attendance = null;
+
+                if (recordSize == 8) {
+                    Object[] fields = Struct.unpack("HB4sB",
+                            Arrays.copyOfRange(padRight(attendanceData, recordSize), 0, recordSize));
+                    int uid = (int) fields[0];
+                    int status = (int) fields[1];
+                    byte[] timestampRaw = (byte[]) fields[2];
+                    int punch = (int) fields[3];
+
+                    if (this.verbose) {
+                        System.out.println(BinUtils.byteArrayToHex(Arrays.copyOfRange(attendanceData, 0, recordSize)));
+                    }
+
+                    attendanceData = Arrays.copyOfRange(attendanceData, 8, attendanceData.length);
+
+                    String userId = users.stream().filter(u -> u.uid == uid).map(u -> u.userId).findFirst()
+                            .orElse(String.valueOf(uid));
+                    LocalDateTime timestamp = decodeTime(timestampRaw);
+                    attendance = new Attendance(uid, userId, timestamp, status, punch);
+
+                    if (attendance != null) {
+                        attendances.add(attendance);
+
+                    }
+                } else if (recordSize == 16) {
+                    Object[] fields = Struct.unpack("<I4sBB2sI",
+                            Arrays.copyOfRange(padRight(attendanceData, recordSize), 0, recordSize));
+                    String userId = String.valueOf(fields[0]);
+                    byte[] timestampRaw = (byte[]) fields[1];
+                    int status = (int) fields[2];
+                    int punch = (int) fields[3];
+                    String finalUserId = userId;
+
+                    if (this.verbose) {
+                        System.out.println(BinUtils.byteArrayToHex(Arrays.copyOfRange(attendanceData, 0, recordSize)));
+                    }
+
+                    attendanceData = Arrays.copyOfRange(attendanceData, recordSize, attendanceData.length);
+
+                    Optional<User> match = users.stream().filter(u -> u.userId.equals(finalUserId)).findFirst();
+                    int uid = match.map(u -> u.uid).orElse(Integer.parseInt(userId));
+                    userId = match.map(u -> u.userId).orElse(userId);
+
+                    LocalDateTime timestamp = decodeTime(timestampRaw);
+                    attendance = new Attendance(uid, userId, timestamp, status, punch);
+                    if (attendance != null) {
+                        attendances.add(attendance);
+                    }
+
+                } else {
+                    Object[] fields = Struct.unpack("<H24sB4sB8s",
+                            Arrays.copyOfRange(padRight(attendanceData, 40), 0, 40));
+                    int uid = (int) fields[0];
+                    String userId = new String(splitByDelimiter((byte[]) fields[1], (byte) 0x00).get(0), this.encoding);
+                    int status = (int) fields[2];
+                    byte[] timestampRaw = (byte[]) fields[3];
+                    int punch = (int) fields[4];
+
+                    if (this.verbose) {
+                        System.out.println(BinUtils.byteArrayToHex(Arrays.copyOfRange(attendanceData, 0, 40)));
+                    }
+
+                    attendanceData = Arrays.copyOfRange(attendanceData, recordSize, attendanceData.length);
+
+                    LocalDateTime timestamp = decodeTime(timestampRaw);
+                    attendance = new Attendance(uid, userId, timestamp, status, punch);
+                    if (attendance != null) {
+                        attendances.add(attendance);
+
+                    }
+                }
+            }
+
+            return attendances;
+        }
+
         public boolean clearAttendance() throws Exception {
             int command = DeviceConstants.CMD_CLEAR_ATTLOG;
             Map<String, Object> cmdResponse = sendCommand(command);

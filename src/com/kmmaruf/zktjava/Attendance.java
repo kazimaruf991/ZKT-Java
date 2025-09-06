@@ -57,4 +57,9 @@ public class Attendance {
     public void setPunch(int punch) {
         this.punch = punch;
     }
+
+     @Override
+    public String toString() {
+        return String.format("<Attendance>: %s : %s (%s, %s)", user_id, timestamp, status, punch);
+    }
 }

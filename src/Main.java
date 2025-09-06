@@ -1,3 +1,4 @@
+import com.kmmaruf.zktjava.Attendance;
 import com.kmmaruf.zktjava.Base;
 import com.kmmaruf.zktjava.User;
 
@@ -10,8 +11,8 @@ import java.util.Map;
 public class Main {
     public static void main(String[] args) {
         Base base = new Base();
-        Base.ZK zk = base.new ZK("203.82.206.78", 43107, 102159);
-        //Base.ZK zk = base.new ZK("192.168.34.11", 43107, 102159);
+        //Base.ZK zk = base.new ZK("203.82.206.78", 43107, 102159);
+        Base.ZK zk = base.new ZK("192.168.34.11", 43107, 102159);
         try {
             System.out.println("Connecting to device...");
             zk.connect();
@@ -63,6 +64,17 @@ public class Main {
             }
             System.out.println("---------------------------");
 
+            
+            System.out.println("Getting Attendance logs: ------------");
+            startTime = System.currentTimeMillis() / 1000.0;
+            List<Attendance> attendanceList = zk.getAttendance();
+            endTime = System.currentTimeMillis() / 1000.0;
+            System.out.printf("    took %.3f[s]%n", endTime - startTime);
+            printAttendance(attendanceList);
+            System.out.println("---------------------------");
+
+
+
 
             System.out.println("Enabling device....");
             zk.enableDevice();
@@ -75,5 +87,17 @@ public class Main {
             e.printStackTrace();
         }
 
+    }
+
+    private static void printAttendance(List<Attendance> attendanceList){
+        if (attendanceList.isEmpty()){
+            System.out.println("---- No attendance found!----");
+        }else {
+            for (Attendance attendance : attendanceList){
+                if (attendance != null){
+                    System.out.println(attendance);
+                }
+            }
+        }
     }
 }
