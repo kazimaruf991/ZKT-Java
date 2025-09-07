@@ -1158,79 +1158,81 @@ public class Base {
             }
             return true;
         }
-//
-//        public Finger getUserTemplate(String uidStr, int tempId, String userId) throws Exception {
-//            int uid = 0;
-//            if (uidStr == null || uidStr.isEmpty()) {
-//                List<User> users = getUsers();
-//                for (User u : users) {
-//                    if (u.userId.equals(userId)) {
-//                        uid = u.uid;
-//                        break;
-//                    }
-//                }
-//                if (uid == 0) return null;
-//            } else {
-//                uid = Integer.parseInt(uidStr);
-//            }
-//
-//            for (int retries = 0; retries < 3; retries++) {
-//                byte[] commandString = Struct.pack("hb", uid, tempId);
-//                Map<String, Object> cmdResponse = sendCommand(DeviceConstants._CMD_GET_USERTEMP, commandString, 1032);
-//                byte[] data = receiveChunk();
-//                if (data != null) {
-//                    byte[] resp = Arrays.copyOf(data, data.length - 1);
-//                    if (resp.length >= 6 && Arrays.equals(Arrays.copyOfRange(resp, resp.length - 6, resp.length), new byte[6])) {
-//                        resp = Arrays.copyOf(resp, resp.length - 6);
-//                    }
-//                    return new Finger(uid, tempId, 1, resp);
-//                }
-//                if (this.verbose) System.out.println("retry get_user_template");
-//            }
-//
-//            if (this.verbose) System.out.println("Can't read/find finger");
-//            return null;
-//        }
-//
-//        public List<Finger> getTemplates() throws Exception {
-//            readSizes();
-//            if (this.fingers == 0) return new ArrayList<>();
-//
-//            List<Finger> templates = new ArrayList<>();
-//            ReadBufferResult result = readWithBuffer(DeviceConstants.CMD_DB_RRQ, DeviceConstants.FCT_FINGERTMP);
-//            byte[] templatedata = result.data;
-//            int size = result.size;
-//
-//            if (size < 4) {
-//                if (this.verbose) System.out.println("WRN: no user data");
-//                return templates;
-//            }
-//
-//            int totalSize = (int) Struct.unpack("i", Arrays.copyOfRange(templatedata, 0, 4))[0];
-//            if (this.verbose) {
-//                System.out.printf("get template total size %d, size %d len %d%n", totalSize, size, templatedata.length);
-//            }
-//
-//            templatedata = Arrays.copyOfRange(templatedata, 4, templatedata.length);
-//            while (totalSize > 0 && templatedata.length >= 6) {
-//                Object[] header = Struct.unpack("HHbb", Arrays.copyOfRange(templatedata, 0, 6));
-//                int recordSize = (int) header[0];
-//                int uid = (int) header[1];
-//                int fid = (byte) header[2];
-//                int valid = (byte) header[3];
-//
-//                byte[] template = Arrays.copyOfRange(templatedata, 6, recordSize);
-//                Finger finger = new Finger(uid, fid, valid, template);
-//                if (this.verbose) System.out.println(finger);
-//
-//                templates.add(finger);
-//                templatedata = Arrays.copyOfRange(templatedata, recordSize, templatedata.length);
-//                totalSize -= recordSize;
-//            }
-//
-//            return templates;
-//        }
-//
+
+        public Finger getUserTemplate(String uidStr, int tempId, String userId) throws Exception {
+            int uid = 0;
+            if (uidStr == null || uidStr.isEmpty()) {
+                List<User> users = getUsers();
+                for (User u : users) {
+                    if (u.userId.equals(userId)) {
+                        uid = u.uid;
+                        break;
+                    }
+                }
+                if (uid == 0) return null;
+            } else {
+                uid = Integer.parseInt(uidStr);
+            }
+
+            for (int retries = 0; retries < 100; retries++) {
+                byte[] commandString = Struct.pack("hb", uid, tempId);
+                Map<String, Object> cmdResponse = sendCommand(DeviceConstants._CMD_GET_USERTEMP, commandString, 1032);
+                byte[] data = receiveChunk();
+                if (data != null) {
+                    byte[] resp = Arrays.copyOf(data, data.length - 1);
+                    if (resp.length >= 6 && Arrays.equals(Arrays.copyOfRange(resp, resp.length - 6, resp.length), new byte[6])) {
+                        resp = Arrays.copyOf(resp, resp.length - 6);
+                    }
+                    return new Finger(uid, tempId, 1, resp);
+                }
+                if (this.verbose) System.out.println("retry get_user_template");
+            }
+
+            if (this.verbose) System.out.println("Can't read/find finger");
+            return null;
+        }
+
+        public List<Finger> getTemplates() throws Exception {
+            readSizes();
+            if (this.fingers == 0) return new ArrayList<>();
+
+            List<Finger> templates = new ArrayList<>();
+            ReadBufferResult result = readWithBuffer(DeviceConstants.CMD_DB_RRQ, DeviceConstants.FCT_FINGERTMP);
+            byte[] templatedata = result.data;
+            int size = result.size;
+
+            if (size < 4) {
+                if (this.verbose) System.out.println("WRN: no user data");
+                return templates;
+            }
+
+            int totalSize = (int) Struct.unpack("i", Arrays.copyOfRange(templatedata, 0, 4))[0];
+            if (this.verbose) {
+                System.out.printf("get template total size %d, size %d len %d%n", totalSize, size, templatedata.length);
+            }
+
+            templatedata = Arrays.copyOfRange(templatedata, 4, templatedata.length);
+            while (totalSize > 0 && templatedata.length >= 6) {
+                Object[] header = Struct.unpack("HHbb", Arrays.copyOfRange(templatedata, 0, 6));
+                int recordSize = (int) header[0];
+                int uid = (int) header[1];
+                int fid = (byte) header[2];
+                int valid = (byte) header[3];
+
+//                byte[] sliced = Arrays.copyOfRange(templatedata, 6, size);
+//                String template = new String(sliced, 0, sliced.length, this.encoding);
+                byte[] template = Arrays.copyOfRange(templatedata, 6, recordSize);
+                Finger finger = new Finger(uid, fid, valid, template);
+                if (this.verbose) System.out.println(finger);
+
+                templates.add(finger);
+                templatedata = Arrays.copyOfRange(templatedata, recordSize, templatedata.length);
+                totalSize -= recordSize;
+            }
+
+            return templates;
+        }
+
 
         public List<byte[]> splitByDelimiter(byte[] data, byte delimiter) {
             List<byte[]> parts = new ArrayList<>();
@@ -1344,135 +1346,173 @@ public class Base {
 
             return users;
         }
-        //
-//        public boolean cancelCapture() throws Exception {
-//            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_CANCELCAPTURE);
-//            return (boolean) cmdResponse.get("status");
-//        }
-//
-//        public boolean verifyUser() throws Exception {
-//            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_STARTVERIFY);
-//            if ((boolean) cmdResponse.get("status")) {
-//                return true;
-//            } else {
-//                throw new ZKErrorResponse("Can't Verify");
-//            }
-//        }
-//
-//        public void registerEvent(int flags) throws Exception {
-//            byte[] commandString = Struct.pack("I", flags);
-//            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_REG_EVENT, commandString);
-//            if (!(boolean) cmdResponse.get("status")) {
-//                throw new ZKErrorResponse("Can't register events " + flags);
-//            }
-//        }
-//
+
+        public boolean cancelCapture() throws Exception {
+            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_CANCELCAPTURE);
+            return (boolean) cmdResponse.get("status");
+        }
+
+        public boolean verifyUser() throws Exception {
+            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_STARTVERIFY);
+            if ((boolean) cmdResponse.get("status")) {
+                return true;
+            } else {
+                throw new ZKErrorResponse("Can't Verify");
+            }
+        }
+
+        public void registerEvent(int flags) throws Exception {
+            byte[] commandString = Struct.pack("I", flags);
+            Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_REG_EVENT, commandString);
+            if (!(boolean) cmdResponse.get("status")) {
+                throw new ZKErrorResponse("Can't register events " + flags);
+            }
+        }
+
         public boolean setSdkBuild1() throws Exception{
             byte[] commandString = "SDKBuild=1".getBytes();
             Map<String, Object> cmdResponse = sendCommand(DeviceConstants.CMD_OPTIONS_WRQ, commandString);
             return (boolean) cmdResponse.get("status");
         }
-        //
-//
-//        public boolean enrollUser(int uid, int tempId, String userId) throws Exception {
-//            int command = DeviceConstants.CMD_STARTENROLL;
-//            boolean done = false;
-//
-//            if (userId == null || userId.isEmpty()) {
-//                List<User> users = getUsers();
-//                Optional<User> match = users.stream().filter(u -> u.uid == uid).findFirst();
-//                if (match.isPresent()) {
-//                    userId = match.get().userId;
-//                } else {
-//                    return false;
-//                }
-//            }
-//
-//            byte[] commandString;
-//            if (this.tcp) {
-//                commandString = Struct.pack("<24sbb", userId.getBytes(), tempId, 1);
-//            } else {
-//                commandString = Struct.pack("<Ib", Integer.parseInt(userId), tempId);
-//            }
-//
-//            cancelCapture();
-//            Map<String, Object> cmdResponse = sendCommand(command, commandString);
-//            if (!(Boolean) cmdResponse.get("status")) {
-//                throw new ZKErrorResponse(String.format("Can't Enroll user #%d [%d]", uid, tempId));
-//            }
-//
-//            this.tcpSocket.setSoTimeout(60000);
-//            this.udpSocket.setSoTimeout(60000);
-//            int attempts = 3;
-//
-//            while (attempts > 0) {
-//                if (this.verbose) System.out.printf("A:%d esperando primer regevent%n", attempts);
-//                byte[] dataRecv = recvBytes(1032);
-//                ackOk();
-//                if (this.verbose) System.out.println(BinUtils.byteArrayToHex(dataRecv));
-//
-//                int res = encode(dataRecv);
-//                if (this.verbose) System.out.printf("res %d%n", res);
-//
-//                if (res == 0 || res == 6 || res == 4) {
-//                    if (this.verbose) System.out.println("posible timeout o reg Fallido");
-//                    break;
-//                }
-//
-//                if (this.verbose) System.out.printf("A:%d esperando 2do regevent%n", attempts);
-//                dataRecv = recvBytes(1032);
-//                ackOk();
-//                if (this.verbose) System.out.println(BinUtils.byteArrayToHex(dataRecv));
-//
-//                res = encode(dataRecv);
-//                if (this.verbose) System.out.printf("res %d%n", res);
-//
-//                if (res == 6 || res == 4) {
-//                    if (this.verbose) System.out.println("posible timeout o reg Fallido");
-//                    break;
-//                } else if (res == 0x64) {
-//                    if (this.verbose) System.out.println("ok, continue?");
-//                    attempts--;
-//                }
-//            }
-//
-//            if (attempts == 0) {
-//                byte[] dataRecv = recvBytes(1032);
-//                ackOk();
-//                if (this.verbose) System.out.println(BinUtils.byteArrayToHex(dataRecv));
-//
-//                int res = encode(dataRecv);
-//                if (this.verbose) System.out.printf("res %d%n", res);
-//
-//                if (res == 5 && this.verbose) System.out.println("finger duplicate");
-//                if ((res == 6 || res == 4) && this.verbose) System.out.println("posible timeout");
-//
-//                if (res == 0) {
-//                    int size = (int) Struct.unpack("H", pad(dataRecv, tcp ? 24 : 16), tcp ? 10 : 10)[0];
-//                    int pos = (int) Struct.unpack("H", pad(dataRecv, tcp ? 24 : 16), tcp ? 12 : 12)[0];
-//                    if (this.verbose) System.out.printf("enroll ok %d %d%n", size, pos);
-//                    done = true;
-//                }
-//            }
-//
-//            this.tcpSocket.setSoTimeout(this.timeout);
-//            this.udpSocket.setSoTimeout(this.timeout);
-//            registerEvent(0); // TODO: test
-//            cancelCapture();
-//            verifyUser();
-//            return done;
-//        }
-//
-//        public static String encode(byte[] data) {
-//            StringBuilder hex = new StringBuilder();
-//            for (byte b : data) {
-//                hex.append(String.format("%02x", b));
-//            }
-//            return hex.toString();
-//        }
-//
-//
-//
+
+
+        public boolean enrollUser(int uid, int tempId, String userId) throws Exception {
+            int command = DeviceConstants.CMD_STARTENROLL;
+            boolean done = false;
+
+            if (userId == null || userId.isEmpty()) {
+                List<User> users = getUsers();
+                Optional<User> match = users.stream().filter(u -> u.uid == uid).findFirst();
+                if (match.isPresent()) {
+                    userId = match.get().userId;
+                } else {
+                    return false;
+                }
+            }
+
+            byte[] commandString;
+            if (this.tcp) {
+                commandString = Struct.pack("<24sbb", userId.getBytes(), tempId, 1);
+            } else {
+                commandString = Struct.pack("<Ib", Integer.parseInt(userId), tempId);
+            }
+
+            cancelCapture();
+            Map<String, Object> cmdResponse = sendCommand(command, commandString);
+            if (!(Boolean) cmdResponse.get("status")) {
+                throw new ZKErrorResponse(String.format("Can't Enroll user #%d [%d]", uid, tempId));
+            }
+
+            this.tcpSocket.setSoTimeout(60000);
+            this.udpSocket.setSoTimeout(60000);
+            int attempts = 3;
+
+            while (attempts > 0) {
+                if (this.verbose) System.out.printf("A:%d esperando primer regevent%n", attempts);
+                byte[] dataRecv = recvBytes(1032);
+                ackOk();
+                if (this.verbose) System.out.println(BinUtils.byteArrayToHex(dataRecv));
+
+                if (this.tcp){
+                    if (dataRecv.length > 16){
+                        int res = (int) Struct.unpack("H", Arrays.copyOfRange(padRight(dataRecv, 24), 16, 18))[0];
+                        if (this.verbose) System.out.printf("res %d%n", res);
+                        if (res == 0 || res == 6 || res == 4){
+                            if (this.verbose) System.out.println("Possible timeout or registration failed");
+                            break;
+                        }
+                    }
+                }else {
+                    if (dataRecv.length > 8){
+                        int res = (int) Struct.unpack("H", Arrays.copyOfRange(padRight(dataRecv, 16), 8, 10))[0];
+                        if (this.verbose) System.out.printf("res %d%n", res);
+                        if (res == 6 || res == 4){
+                            if (this.verbose) System.out.println("Possible timeout");
+                            break;
+                        }
+                    }
+                }
+
+                if (this.verbose) System.out.printf("A:%d waiting for 2nd regevent%n", attempts);
+                dataRecv = recvBytes(1032);
+                ackOk();
+                if (this.verbose) System.out.println(BinUtils.byteArrayToHex(dataRecv));
+
+                if (this.tcp){
+                    if (dataRecv.length > 8){
+                        int res = (int) Struct.unpack("H", Arrays.copyOfRange(padRight(dataRecv, 24), 16, 18))[0];
+                        if (this.verbose) System.out.printf("res %d%n", res);
+                        if (res == 6 || res == 4){
+                            if (this.verbose) System.out.println("Possible timeout or registration failed");
+                            break;
+                        } else if (res == 0x64) {
+                            if (this.verbose) System.out.println("ok, continue?");
+                            attempts--;
+                        }
+                    }
+                }else {
+                    if (dataRecv.length > 8){
+                        int res = (int) Struct.unpack("H", Arrays.copyOfRange(padRight(dataRecv, 16),8, 10))[0];
+                        if (this.verbose) System.out.printf("res %d%n", res);
+                        if (res == 6 || res == 4){
+                            if (this.verbose) System.out.println("Possible timeout or registration failed");
+                            break;
+                        } else if (res == 0x64) {
+                            if (this.verbose) System.out.println("ok, continue?");
+                            attempts--;
+                        }
+                    }
+                }
+            }
+
+            if (attempts == 0) {
+                byte[] dataRecv = recvBytes(1032);
+                ackOk();
+                if (this.verbose) System.out.println(BinUtils.byteArrayToHex(dataRecv));
+
+                int res;
+                if (tcp){
+                    res = (int) Struct.unpack("H", Arrays.copyOfRange(padRight(dataRecv, 24), 16, 18))[0];
+                }else {
+                    res = (int) Struct.unpack("H", Arrays.copyOfRange(padRight(dataRecv, 16),8, 10))[0];
+                }
+                if (this.verbose) System.out.printf("res %d%n", res);
+
+                if (res == 5 && this.verbose) System.out.println("finger duplicate");
+                if ((res == 6 || res == 4) && this.verbose) System.out.println("possible timeout");
+
+                if (res == 0) {
+                    int size = (int) Struct.unpack("H", Arrays.copyOfRange(padRight(dataRecv, 16), 10, 12))[0];
+                    int pos = (int) Struct.unpack("H", Arrays.copyOfRange(padRight(dataRecv, 16), 12, 14))[0];
+                    if (this.verbose) System.out.printf("enroll ok %d %d%n", size, pos);
+                    done = true;
+                }
+            }
+
+            this.tcpSocket.setSoTimeout(this.timeout);
+            this.udpSocket.setSoTimeout(this.timeout);
+            registerEvent(0); // TODO: test
+            cancelCapture();
+            verifyUser();
+            return done;
+        }
+
+        public static byte[] padRight(byte[] input, int totalLength) {
+            byte[] padded = new byte[totalLength]; // filled with 0x00 by default
+            System.arraycopy(input, 0, padded, 0, Math.min(input.length, totalLength));
+            return padded;
+        }
+
+        public static String encode(byte[] data) {
+            StringBuilder hex = new StringBuilder();
+            for (byte b : data) {
+                hex.append(String.format("%02x", b));
+            }
+            return hex.toString();
+        }
+
+
+
         // Helper methods
         private byte[] recvBytes(int length) throws IOException {
             byte[] buffer = new byte[length];
@@ -1608,19 +1648,19 @@ public class Base {
 //            }
 //        }
 //
-//        public boolean clearData() throws Exception {
-//            int command = DeviceConstants.CMD_CLEAR_DATA;
-//            byte[] commandString = new byte[0];
-//            Map<String, Object> cmdResponse = sendCommand(command, commandString);
-//
-//            if ((boolean) cmdResponse.get("status")) {
-//                this.nextUid = 1;
-//                return true;
-//            } else {
-//                throw new ZKErrorResponse("Can't clear data");
-//            }
-//        }
-//
+        public boolean clearData() throws Exception {
+            int command = DeviceConstants.CMD_CLEAR_DATA;
+            byte[] commandString = new byte[0];
+            Map<String, Object> cmdResponse = sendCommand(command, commandString);
+
+            if ((boolean) cmdResponse.get("status")) {
+                this.nextUid = 1;
+                return true;
+            } else {
+                throw new ZKErrorResponse("Can't clear data");
+            }
+        }
+
         public class TcpResult {
             public final byte[] payload;
             public final byte[] remainder;
@@ -1996,14 +2036,14 @@ public class Base {
 //            return attendances;
 //        }
 //
-//        public boolean clearAttendance() throws Exception {
-//            int command = DeviceConstants.CMD_CLEAR_ATTLOG;
-//            Map<String, Object> cmdResponse = sendCommand(command);
-//            if ((Boolean) cmdResponse.get("status")) {
-//                return true;
-//            } else {
-//                throw new ZKErrorResponse("Can't clear response");
-//            }
-//        }
+        public boolean clearAttendance() throws Exception {
+            int command = DeviceConstants.CMD_CLEAR_ATTLOG;
+            Map<String, Object> cmdResponse = sendCommand(command);
+            if ((Boolean) cmdResponse.get("status")) {
+                return true;
+            } else {
+                throw new ZKErrorResponse("Can't clear response");
+            }
+        }
     }
 }
