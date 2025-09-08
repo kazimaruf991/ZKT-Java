@@ -5,6 +5,8 @@ import com.kmmaruf.zktjava.exceptions.ZKErrorResponse;
 import com.kmmaruf.zktjava.exceptions.ZKNetworkError;
 
 import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InterruptedIOException;
@@ -369,12 +371,14 @@ public class Base {
             try {
                 if (this.tcp) {
                     byte[] top = createTcpTop(buf);
-                    this.tcpSocket.getOutputStream().write(top);
+                    DataOutputStream dos = new DataOutputStream(this.tcpSocket.getOutputStream());
+                    dos.write(top);
+                    dos.flush();
 
                     // byte[] tcpDataRecv = new byte[responseSize + 8];
                     // this.tcpSocket.getInputStream().read(tcpDataRecv);
 
-                    InputStream inputStream = this.tcpSocket.getInputStream();
+                    DataInputStream inputStream = new DataInputStream(this.tcpSocket.getInputStream());
                     int maxBytes = responseSize + 8;
 
                     byte[] tcpDataRecv = new byte[maxBytes];
@@ -467,8 +471,7 @@ public class Base {
         // }
         //
         private LocalDateTime decodeTime(byte[] t) {
-            ByteBuffer buffer = ByteBuffer.wrap(t).order(ByteOrder.LITTLE_ENDIAN);
-            long raw = Integer.toUnsignedLong(buffer.getInt());
+            int raw = (int) Struct.unpack("I", t)[0];
 
             int second = (int) (raw % 60);
             raw /= 60;
@@ -1556,7 +1559,7 @@ public class Base {
         // Helper methods
         private byte[] recvBytes(int length) throws IOException {
             byte[] buffer = new byte[length];
-            InputStream in = this.tcpSocket.getInputStream();
+            DataInputStream in = new DataInputStream(this.tcpSocket.getInputStream());
             int read = in.read(buffer);
             return Arrays.copyOf(buffer, read);
         }
@@ -1945,6 +1948,7 @@ public class Base {
                 int responseSize = tcp ? size + 32 : 1024 + 8;
 
                 sendCommand(command, commandString, responseSize);
+                Thread.sleep(300);
 
                 byte[] data = receiveChunk();
 
@@ -1983,8 +1987,7 @@ public class Base {
             int start = 0;
             List<byte[]> chunks = new ArrayList<>();
 
-            Map<String, Object> response = sendCommand(DeviceConstants._CMD_PREPARE_BUFFER, commandString,
-                    responseSize);
+            Map<String, Object> response = sendCommand(DeviceConstants._CMD_PREPARE_BUFFER, commandString, responseSize);
 
             if (!(boolean) response.get("status"))
                 throw new ZKErrorResponse("RWB Not supported");
@@ -2113,8 +2116,8 @@ public class Base {
                     }
 
                 } else {
-                    Object[] fields = Struct.unpack("<H24sB4sB8s",
-                            Arrays.copyOfRange(padRight(attendanceData, 40), 0, 40));
+                    byte[] dataTobePassed = Arrays.copyOfRange(padRight(attendanceData, 40), 0, 40);
+                    Object[] fields = Struct.unpack("<H24sB4sB8s",  dataTobePassed);
                     int uid = (int) fields[0];
                     String userId = new String(splitByDelimiter((byte[]) fields[1], (byte) 0x00).get(0), this.encoding);
                     int status = (int) fields[2];
